@@ -1,0 +1,2971 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>智慧捕蟲罐監測儀表板</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;800&display=swap" rel="stylesheet">
+    <style>
+        /* ------------------------------------- */
+        /* GLOBAL RESET & BASE STYLES          */
+        /* ------------------------------------- */
+        :root {
+            --bg: #f1f5f9;
+        }
+        body {
+            margin: 0;
+            padding: 0;
+            background: var(--bg);
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+            min-height: 100vh;
+        }
+        
+        /* ------------------------------------- */
+        /* test.html CSS                       */
+        /* ------------------------------------- */
+        
+        :root {
+            --primary: #2563eb;
+            --primary-l: #dbeafe;
+            --success: #16a34a;
+            --success-l: #dcfce7;
+            --warn: #d97706;
+            --warn-l: #fef3c7;
+            --danger: #dc2626;
+            --danger-l: #fee2e2;
+            --gray: #6b7280;
+            --bg: #f1f5f9;
+            --card: #ffffff;
+            --border: #e2e8f0;
+            --text: #1e293b;
+            --text-sub: #64748b;
+        }
+
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+
+        
+
+        /* ── 主容器 ── */
+        .app {
+            width: 100%;
+            max-width: 500px;
+        }
+
+        /* ── 標題區 ── */
+        .header {
+            background: linear-gradient(135deg, #1d4ed8 0%, #2563eb 60%, #3b82f6 100%);
+            border-radius: 16px;
+            padding: 18px 20px 14px;
+            margin-bottom: 12px;
+            box-shadow: 0 4px 20px rgba(37, 99, 235, .3);
+        }
+
+        .header h1 {
+            color: white;
+            font-size: 18px;
+            font-weight: 700;
+            letter-spacing: .3px;
+        }
+
+        .header .subtitle {
+            color: rgba(255, 255, 255, .7);
+            font-size: 11px;
+            margin-top: 2px;
+        }
+
+        .ble-bar {
+            margin-top: 12px;
+            display: flex;
+            gap: 8px;
+            align-items: center;
+        }
+
+        .ble-status {
+            flex: 1;
+            background: rgba(255, 255, 255, .15);
+            border-radius: 8px;
+            padding: 7px 10px;
+            color: white;
+            font-size: 12px;
+            font-weight: 600;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+
+        .ble-status.connected {
+            background: rgba(22, 163, 74, .25);
+        }
+
+        .dot {
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            background: rgba(255, 255, 255, .5);
+            flex-shrink: 0;
+        }
+
+        .dot.on {
+            background: #4ade80;
+            box-shadow: 0 0 6px #4ade80;
+        }
+
+        .btn-connect {
+            background: white;
+            color: var(--primary);
+            border: none;
+            border-radius: 8px;
+            padding: 7px 14px;
+            font-size: 12px;
+            font-weight: 700;
+            cursor: pointer;
+            white-space: nowrap;
+            transition: .15s;
+        }
+
+        .btn-connect:hover {
+            background: #eff6ff;
+        }
+
+        /* ── 統計條 ── */
+        .stats-bar {
+            display: flex;
+            gap: 8px;
+            margin-bottom: 10px;
+        }
+
+        .stat-card {
+            flex: 1;
+            background: var(--card);
+            border-radius: 12px;
+            padding: 10px 8px;
+            text-align: center;
+            box-shadow: 0 1px 4px rgba(0, 0, 0, .06);
+        }
+
+        .stat-val {
+            font-size: 20px;
+            font-weight: 800;
+            color: var(--primary);
+            line-height: 1.1;
+        }
+
+        .stat-lbl {
+            font-size: 10px;
+            color: var(--text-sub);
+            margin-top: 2px;
+        }
+
+        .stat-freq {
+            font-size: 13px !important;
+        }
+
+        /* ── Tab 導覽 ── */
+        .tabs {
+            display: flex;
+            background: var(--card);
+            border-radius: 12px;
+            padding: 4px;
+            margin-bottom: 10px;
+            box-shadow: 0 1px 4px rgba(0, 0, 0, .06);
+            gap: 2px;
+        }
+
+        .tab {
+            flex: 1;
+            padding: 8px 2px;
+            border: none;
+            background: transparent;
+            border-radius: 8px;
+            cursor: pointer;
+            font-size: 11px;
+            font-weight: 600;
+            color: var(--text-sub);
+            transition: .15s;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 2px;
+        }
+
+        .tab span.icon {
+            font-size: 16px;
+        }
+
+        .tab.active {
+            background: var(--primary);
+            color: white;
+            box-shadow: 0 2px 8px rgba(37, 99, 235, .3);
+        }
+
+        .tab-content {
+            display: none;
+        }
+
+        .tab-content.active {
+            display: block;
+        }
+
+        /* ── 共用卡片 ── */
+        .card {
+            background: var(--card);
+            border-radius: 12px;
+            padding: 14px;
+            box-shadow: 0 1px 4px rgba(0, 0, 0, .06);
+            margin-bottom: 10px;
+        }
+
+        .card-title {
+            font-size: 12px;
+            font-weight: 700;
+            color: var(--text-sub);
+            text-transform: uppercase;
+            letter-spacing: .5px;
+            margin-bottom: 10px;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+
+        .card-title::after {
+            content: '';
+            flex: 1;
+            height: 1px;
+            background: var(--border);
+        }
+
+        /* ── 按鈕 ── */
+        button {
+            cursor: pointer;
+            border: none;
+            border-radius: 8px;
+            font-weight: 600;
+            font-size: 13px;
+            transition: .15s;
+        }
+
+        .btn-primary {
+            background: var(--primary);
+            color: white;
+            padding: 9px 14px;
+            width: 100%;
+            margin: 3px 0;
+        }
+
+        .btn-primary:hover {
+            background: #1d4ed8;
+        }
+
+        .btn-success {
+            background: var(--success);
+            color: white;
+            padding: 9px 14px;
+            width: 100%;
+            margin: 3px 0;
+        }
+
+        .btn-danger {
+            background: var(--danger);
+            color: white;
+            padding: 9px 14px;
+            width: 100%;
+            margin: 3px 0;
+        }
+
+        .btn-ghost {
+            background: transparent;
+            border: 1.5px solid var(--border);
+            color: var(--text);
+            padding: 8px 12px;
+        }
+
+        .btn-ghost:hover {
+            border-color: var(--primary);
+            color: var(--primary);
+        }
+
+        .btn-sm {
+            padding: 7px 10px !important;
+            font-size: 12px !important;
+            margin: 2px 0 !important;
+        }
+
+        .row {
+            display: flex;
+            gap: 8px;
+        }
+
+        .row>* {
+            flex: 1;
+        }
+
+        /* ── 表單 ── */
+        label {
+            font-size: 11px;
+            color: var(--text-sub);
+            display: block;
+            margin: 8px 0 3px;
+            font-weight: 600;
+        }
+
+        input,
+        select {
+            width: 100%;
+            padding: 9px 10px;
+            border: 1.5px solid var(--border);
+            border-radius: 8px;
+            font-size: 13px;
+            color: var(--text);
+            background: white;
+            transition: border-color .15s;
+        }
+
+        input:focus,
+        select:focus {
+            outline: none;
+            border-color: var(--primary);
+        }
+
+        /* ── 狀態框 ── */
+        .info-card {
+            background: var(--bg);
+            border-radius: 8px;
+            padding: 10px 12px;
+            font-size: 11px;
+            font-family: monospace;
+            color: var(--text);
+            white-space: pre-wrap;
+            border-left: 3px solid var(--primary);
+        }
+
+        .info-card.ok {
+            border-color: var(--success);
+            background: var(--success-l);
+        }
+
+        .info-card.warn {
+            border-color: var(--warn);
+            background: var(--warn-l);
+        }
+
+        .info-card.error {
+            border-color: var(--danger);
+            background: var(--danger-l);
+        }
+
+        /* ── 連線狀態指示器 ── */
+        .conn-badge {
+            display: inline-flex;
+            align-items: center;
+            gap: 4px;
+            padding: 3px 8px;
+            border-radius: 20px;
+            font-size: 11px;
+            font-weight: 600;
+        }
+
+        .conn-badge.on {
+            background: var(--success-l);
+            color: var(--success);
+        }
+
+        .conn-badge.off {
+            background: #f1f5f9;
+            color: var(--text-sub);
+        }
+
+        .conn-dot {
+            width: 6px;
+            height: 6px;
+            border-radius: 50%;
+        }
+
+        .conn-badge.on .conn-dot {
+            background: var(--success);
+        }
+
+        .conn-badge.off .conn-dot {
+            background: #cbd5e1;
+        }
+
+        /* ── SSID 標籤 ── */
+        .ssid-tags {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 5px;
+            margin: 6px 0;
+        }
+
+        .ssid-tag {
+            background: var(--primary-l);
+            color: var(--primary);
+            padding: 4px 10px;
+            border-radius: 20px;
+            font-size: 11px;
+            font-weight: 600;
+            cursor: pointer;
+        }
+
+        .ssid-tag:hover {
+            background: var(--primary);
+            color: white;
+        }
+
+        /* ── LoRa 參數格 ── */
+        .param-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 6px;
+        }
+
+        .param-cell {
+            background: var(--bg);
+            border-radius: 8px;
+            padding: 7px 10px;
+        }
+
+        .param-name {
+            font-size: 10px;
+            color: var(--text-sub);
+            font-weight: 600;
+        }
+
+        .param-val {
+            font-size: 13px;
+            font-weight: 700;
+            color: var(--text);
+            margin-top: 1px;
+        }
+
+        .param-val.ok {
+            color: var(--success);
+        }
+
+        .param-val.warn {
+            color: var(--warn);
+        }
+
+        /* ── 數據表格 ── */
+        .tbl-wrap {
+            overflow-x: auto;
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 11px;
+            min-width: 360px;
+        }
+
+        thead th {
+            background: var(--primary);
+            color: white;
+            padding: 8px 5px;
+            text-align: center;
+            white-space: nowrap;
+            font-weight: 600;
+        }
+
+        thead th:first-child {
+            border-radius: 8px 0 0 0;
+        }
+
+        thead th:last-child {
+            border-radius: 0 8px 0 0;
+        }
+
+        tbody td {
+            padding: 7px 5px;
+            border-bottom: 1px solid var(--border);
+            text-align: center;
+            white-space: nowrap;
+            color: var(--text);
+        }
+
+        tbody tr:hover {
+            background: #f8fafc;
+        }
+
+        tbody tr.new-row {
+            animation: flash .8s;
+        }
+
+        @keyframes flash {
+            from {
+                background: var(--success-l);
+            }
+
+            to {}
+        }
+
+        .no-data {
+            text-align: center;
+            color: var(--text-sub);
+            padding: 24px 0;
+            font-size: 12px;
+        }
+
+        /* ── 時間顯示 ── */
+        .time-row {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            background: var(--bg);
+            border-radius: 8px;
+            padding: 9px 12px;
+            margin: 6px 0;
+        }
+
+        .time-label {
+            font-size: 11px;
+            color: var(--text-sub);
+        }
+
+        .time-val {
+            font-size: 13px;
+            font-weight: 700;
+            color: var(--text);
+        }
+
+        .time-val.ok {
+            color: var(--success);
+        }
+
+        .time-val.warn {
+            color: var(--danger);
+        }
+
+        /* ── 訊息文字 ── */
+        .msg {
+            font-size: 11px;
+            min-height: 16px;
+            margin: 4px 0;
+            padding: 0 2px;
+        }
+
+        .msg.ok {
+            color: var(--success);
+        }
+
+        .msg.warn {
+            color: var(--warn);
+        }
+
+        .msg.err {
+            color: var(--danger);
+        }
+
+        /* ── 開關 ── */
+        .toggle-row {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 8px 0;
+            border-bottom: 1px solid var(--border);
+        }
+
+        .toggle-row:last-child {
+            border-bottom: none;
+        }
+
+        .toggle-lbl {
+            font-size: 12px;
+            color: var(--text);
+            font-weight: 500;
+        }
+
+        .toggle-sub {
+            font-size: 10px;
+            color: var(--text-sub);
+        }
+
+        /* ── 最後接收指示 ── */
+        .rx-indicator {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            margin-bottom: 8px;
+        }
+
+        .rx-count-badge {
+            background: var(--primary-l);
+            color: var(--primary);
+            padding: 4px 10px;
+            border-radius: 20px;
+            font-size: 12px;
+            font-weight: 700;
+        }
+
+        .rx-time {
+            font-size: 11px;
+            color: var(--text-sub);
+        }
+
+        /* ── 分隔線 ── */
+        .divider {
+            height: 1px;
+            background: var(--border);
+            margin: 10px 0;
+        }
+
+        /* ── BLE 日誌 ── */
+        #log {
+            font-family: monospace;
+            font-size: 10px;
+            background: #0f172a;
+            color: #4ade80;
+            padding: 10px 12px;
+            border-radius: 12px;
+            height: 72px;
+            overflow-y: auto;
+            margin-top: 10px;
+        }
+
+        /* ── 快速操作欄 ── */
+        .action-bar {
+            display: flex;
+            gap: 6px;
+            margin-bottom: 10px;
+        }
+
+        .action-bar button {
+            flex: 1;
+        }
+    
+        /* --- Modernized Settings UI --- */
+        #settings-overlay .app {
+            padding: 20px 15px;
+            max-width: 98%;
+            margin: 0 auto;
+        }
+        
+        @media (min-width: 800px) {
+            #tab-net.active, #tab-lora.active, #tab-sys.active {
+                display: grid;
+                grid-template-columns: 1fr 1fr;
+                gap: 20px;
+                align-items: start;
+                background: transparent;
+                box-shadow: none;
+                padding: 0;
+            }
+            #tab-net.active > .info-card, 
+            #tab-lora.active > .info-card, 
+            #tab-sys.active > .info-card {
+                background: #ffffff;
+                border-radius: 20px;
+                padding: 20px;
+                box-shadow: 0 4px 15px rgba(0,0,0,0.03);
+                margin-bottom: 0 !important;
+            }
+        }
+        .header {
+            position: relative;
+            background: linear-gradient(135deg, #3b82f6 0%, #1d4ed8 100%);
+            border-radius: 20px;
+            padding: 24px 20px;
+            box-shadow: 0 10px 25px -5px rgba(37, 99, 235, 0.4);
+            margin-bottom: 24px;
+        }
+        .header h1 {
+            font-size: 22px;
+            margin-bottom: 4px;
+        }
+        .header .subtitle {
+            font-size: 13px;
+        }
+        .btn-connect {
+            padding: 8px 16px;
+            font-size: 14px;
+            border-radius: 12px;
+        }
+        
+        /* Modernize inputs and cards */
+        .tab-content {
+            background: #ffffff;
+            border-radius: 20px;
+            padding: 20px;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.03);
+            margin-bottom: 20px;
+        }
+        
+        input, select {
+            padding: 12px 14px;
+            border-radius: 12px;
+            border: 1px solid #cbd5e1;
+            font-size: 14px;
+            background: #f8fafc;
+            transition: all 0.2s;
+        }
+        input:focus, select:focus {
+            background: #ffffff;
+            border-color: #3b82f6;
+            box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.15);
+            outline: none;
+        }
+        label {
+            font-size: 13px;
+            color: #475569;
+            margin-bottom: 6px;
+            font-weight: 600;
+        }
+        .action-bar button {
+            padding: 10px;
+            border-radius: 10px;
+            font-size: 13px;
+            font-weight: 600;
+            transition: all 0.15s;
+        }
+        .action-bar button:hover {
+            transform: translateY(-1px);
+        }
+        
+        /* Improve terminal log */
+        #log {
+            border-radius: 16px;
+            padding: 15px;
+            font-size: 12px;
+            height: 140px;
+            background: #0f172a;
+            box-shadow: inset 0 2px 10px rgba(0,0,0,0.3);
+            border: 1px solid rgba(255,255,255,0.1);
+        }
+        
+        /* Close button improvements */
+        .close-btn {
+            position: absolute;
+            right: 16px;
+            top: 16px;
+            background: rgba(255, 255, 255, 0.15);
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            color: white;
+            padding: 6px 12px;
+            border-radius: 20px;
+            cursor: pointer;
+            font-size: 13px;
+            font-weight: 600;
+            transition: all 0.2s;
+            z-index: 99;
+        }
+        .close-btn:hover {
+            background: rgba(255, 255, 255, 0.25);
+            transform: translateY(-1px);
+        }
+    
+        
+        /* ------------------------------------- */
+        /* my_dashboard.html CSS               */
+        /* ------------------------------------- */
+        
+        :root {
+            --bg-color: #0f172a;
+            --card-bg: rgba(30, 41, 59, 0.7);
+            --text-main: #f8fafc;
+            --text-muted: #94a3b8;
+            --accent: #3b82f6;
+            --success: #10b981;
+            --warning: #f59e0b;
+        }
+
+        body {
+            margin: 0;
+            padding: 0;
+            font-family: 'Inter', sans-serif;
+            background: linear-gradient(135deg, #0f172a 0%, #1e1b4b 100%);
+            color: var(--text-main);
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+        }
+
+        header.dash-header { position: relative; width: 100%; box-sizing: border-box;
+            width: 100%;
+            padding: 2rem 0;
+            text-align: center;
+            background: rgba(15, 23, 42, 0.5);
+            backdrop-filter: blur(10px);
+            border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+            margin-bottom: 2rem;
+        }
+
+        header.dash-header h1 {
+            margin: 0;
+            font-size: 2.5rem;
+            font-weight: 800;
+            background: -webkit-linear-gradient(45deg, #60a5fa, #a78bfa);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+
+        .status-badge {
+            display: inline-block;
+            margin-top: 1rem;
+            padding: 0.5rem 1rem;
+            border-radius: 9999px;
+            font-size: 0.875rem;
+            font-weight: 600;
+            background: rgba(245, 158, 11, 0.2);
+            color: var(--warning);
+            border: 1px solid rgba(245, 158, 11, 0.3);
+            transition: all 0.3s ease;
+        }
+
+        .status-badge.connected {
+            background: rgba(16, 185, 129, 0.2);
+            color: var(--success);
+            border-color: rgba(16, 185, 129, 0.3);
+        }
+
+        .container {
+            width: 90%;
+            max-width: 1000px;
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+            gap: 1.5rem;
+            padding-bottom: 3rem;
+        }
+
+        .range-btn {
+            background: rgba(255, 255, 255, .06);
+            border: 1px solid rgba(255, 255, 255, .14);
+            color: var(--text-muted);
+            border-radius: .6rem;
+            padding: .35rem .8rem;
+            font-size: .85rem;
+            cursor: pointer;
+            transition: all .2s ease;
+        }
+        .range-btn:hover { border-color: rgba(255, 255, 255, .3); color: var(--text-main); }
+        .range-btn.active {
+            background: var(--accent);
+            border-color: var(--accent);
+            color: #fff;
+            font-weight: 600;
+        }
+
+        .dash-card {
+            background: var(--card-bg);
+            backdrop-filter: blur(16px);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            border-radius: 1.5rem;
+            padding: 1.5rem;
+            box-shadow: 0 4px 30px rgba(0, 0, 0, 0.1);
+            transition: transform 0.3s ease, box-shadow 0.3s ease;
+        }
+
+        .dash-card:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 10px 40px rgba(0, 0, 0, 0.2);
+            border-color: rgba(255, 255, 255, 0.2);
+        }
+
+        .dash-card-title {
+            font-size: 1rem;
+            color: var(--text-muted);
+            font-weight: 600;
+            margin-bottom: 0.5rem;
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+
+        .dash-card-value {
+            font-size: 3rem;
+            font-weight: 800;
+            margin: 0;
+            display: flex;
+            align-items: baseline;
+            gap: 0.5rem;
+        }
+
+        .dash-card-unit {
+            font-size: 1.25rem;
+            font-weight: 600;
+            color: var(--text-muted);
+        }
+
+        .settings-panel {
+            width: 90%;
+            max-width: 1000px;
+            background: var(--card-bg);
+            border-radius: 1rem;
+            padding: 1.5rem;
+            margin-bottom: 2rem;
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            display: flex;
+            flex-wrap: wrap;
+            gap: 1rem;
+            align-items: center;
+            justify-content: space-between;
+        }
+
+        .input-group {
+            display: flex;
+            flex-direction: column;
+            gap: 0.5rem;
+            flex: 1;
+            min-width: 200px;
+        }
+
+        .input-group label {
+            font-size: 0.875rem;
+            color: var(--text-muted);
+            font-weight: 600;
+        }
+
+        .input-group input {
+            background: rgba(0, 0, 0, 0.2);
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            color: white;
+            padding: 0.75rem 1rem;
+            border-radius: 0.5rem;
+            font-size: 1rem;
+            outline: none;
+            transition: border-color 0.2s;
+        }
+
+        .input-group input:focus {
+            border-color: var(--accent);
+        }
+
+        button.dash-btn {
+            background: var(--accent);
+            color: white;
+            border: none;
+            padding: 0.75rem 1.5rem;
+            border-radius: 0.5rem;
+            font-size: 1rem;
+            font-weight: 600;
+            cursor: pointer;
+            transition: background 0.2s;
+            height: fit-content;
+            margin-top: 1.25rem;
+        }
+
+        button.dash-btn:hover {
+            background: #2563eb;
+        }
+        
+        .log-panel {
+            width: 90%;
+            max-width: 1000px;
+            background: #000;
+            border-radius: 1rem;
+            padding: 1rem;
+            font-family: monospace;
+            font-size: 0.875rem;
+            color: #4ade80;
+            height: 150px;
+            overflow-y: auto;
+            border: 1px solid rgba(255,255,255,0.1);
+        }
+
+    
+        
+        /* ------------------------------------- */
+        /* LAYOUT & TOGGLING CSS               */
+        /* ------------------------------------- */
+        #dashboard-view {
+            width: 100%;
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            background: linear-gradient(135deg, #0f172a 0%, #1e1b4b 100%);
+            color: #f8fafc;
+            font-family: 'Inter', sans-serif;
+            padding-bottom: 2rem;
+            box-sizing: border-box;
+        }
+        
+        #settings-overlay {
+            position: fixed;
+            inset: 0;
+            width: 100%;
+            min-height: 100vh;
+            display: none; /* Hidden by default */
+            overflow-y: auto;
+            padding: 12px;
+            box-sizing: border-box;
+            background: var(--bg);
+        }
+        
+        /* Allow UI to fill wide screens */
+        .container, .settings-panel, .log-panel, .dash-card {
+            max-width: 98% !important;
+        }
+    </style>
+</head>
+<body>
+
+    <!-- DASHBOARD VIEW -->
+    <div id="dashboard-view">
+        <button id="lang-toggle" data-noi18n
+            style="position:fixed; left:20px; top:20px; z-index:9999;
+                   padding:.45rem .9rem; border-radius:8px; cursor:pointer;
+                   border:1px solid rgba(128,128,128,.45);
+                   background:rgba(128,128,128,.14); color:inherit;
+                   font-size:.9rem; font-weight:600; backdrop-filter:blur(4px);">EN</button>
+        
+
+    <header class="dash-header">
+        <h1>智慧捕蟲罐監測儀表板</h1>
+<button id="gear-btn" onclick="openSettings()" style="position:absolute; right:20px; top:20px; background:transparent; border:none; font-size:24px; cursor:pointer; z-index:99;" class="dash-btn">⚙️</button>
+        <div id="dash-status" class="status-badge">🟡 尚未連線 Firebase</div>
+    </header>
+
+    <div class="settings-panel">
+        <div class="input-group">
+            <label>Firebase Database URL</label>
+            <input type="text" id="dash-db-url" value="https://environmentdata-52a5e-default-rtdb.firebaseio.com">
+        </div>
+        <button class="dash-btn" onclick="connectFirebase()">重新連線</button>
+    </div>
+
+    <div id="device-tabs" style="width:90%;max-width:1000px;display:flex;gap:.5rem;
+         align-items:center;margin-bottom:.75rem;flex-wrap:wrap;">
+        <span style="color:var(--text-muted);font-size:.9rem;margin-right:.25rem;">裝置</span>
+        <button class="range-btn active" onclick="selectDevice('ALL')">全部裝置</button>
+    </div>
+
+    <div id="range-bar" style="width:90%;max-width:1000px;display:flex;gap:.5rem;
+         align-items:center;margin-bottom:1rem;flex-wrap:wrap;">
+        <span style="color:var(--text-muted);font-size:.9rem;margin-right:.25rem;">歷史區間</span>
+        <button class="range-btn active" onclick="setRange(24*3600e3, this)">24 小時</button>
+        <button class="range-btn" onclick="setRange(7*86400e3, this)">7 天</button>
+        <button class="range-btn" onclick="setRange(30*86400e3, this)">30 天</button>
+        <button class="range-btn" onclick="setRange(0, this)">全部</button>
+    </div>
+
+    <!-- 每台設備一組卡片，由 JS 依 Firebase 內的設備節點動態產生 -->
+    <div id="device-list" style="width:90%;max-width:1000px;padding-bottom:1rem;">
+        <div id="no-device" style="text-align:center;color:var(--text-muted);padding:2.5rem;">
+            尚無設備資料，等待上傳中…
+        </div>
+    </div>
+    
+    <div class="log-panel" id="log-panel">
+        <div>[系統] 準備就緒...</div>
+    </div>
+
+    
+    </div>
+
+    <!-- SETTINGS OVERLAY -->
+    <div id="settings-overlay">
+        
+    <div class="app">
+
+        <!-- ── 標題 / BLE 連線 ── -->
+        <div class="header">
+            <h1>📡 IAQ 接收閘道</h1>
+            <button class="close-btn" onclick="closeSettings()">回到儀表板 ✖</button>
+            <div class="subtitle">IAQ-GW · Nordic UART Service · LoRa E220</div>
+            <div class="ble-bar">
+                <div class="ble-status" id="ble-stat">
+                    <span class="dot" id="ble-dot"></span>
+                    <span id="ble-stat-text">尚未連線藍牙</span>
+                </div>
+                <button class="btn-connect" onclick="connectBLE()">🔗 連接</button>
+            </div>
+        </div>
+
+        <!-- ── 統計條 ── -->
+        <div class="stats-bar">
+            <div class="stat-card">
+                <div class="stat-val" id="stat-rx">0</div>
+                <div class="stat-lbl">總接收</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-val" id="stat-hist">0</div>
+                <div class="stat-lbl">歷史緩衝</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-val stat-freq" id="stat-freq">--</div>
+                <div class="stat-lbl">頻率 MHz</div>
+            </div>
+            <div class="stat-card" style="cursor:pointer;" onclick="loadAllConfig()" title="點擊刷新">
+                <div class="stat-val" style="font-size:16px;">🔄</div>
+                <div class="stat-lbl">刷新設定</div>
+            </div>
+        </div>
+
+        <!-- ── Tab 導覽 ── -->
+        <div class="tabs">
+            <button class="tab" onclick="showTab('data')">
+                <span class="icon">📊</span>數據
+            </button>
+            <button class="tab active" onclick="showTab('net')">
+                <span class="icon">🌐</span>網路
+            </button>
+            <button class="tab" onclick="showTab('lora')">
+                <span class="icon">📡</span>LoRa
+            </button>
+            <button class="tab" onclick="showTab('sys')">
+                <span class="icon">⚙️</span>系統
+            </button>
+        </div>
+
+        <!-- ══════════════════════════════════════════ -->
+        <!-- Tab 1：數據                                -->
+        <!-- ══════════════════════════════════════════ -->
+        <div id="tab-data" class="tab-content">
+
+            <div class="card">
+                <div class="rx-indicator">
+                    <span class="rx-count-badge">近 <span id="hist-count">0</span> 筆</span>
+                    <span class="rx-time" id="last-rx-time">尚未收到資料</span>
+                </div>
+                <div class="action-bar">
+                    <button class="btn-ghost btn-sm" onclick="send('DATA:HIST')">🔄 查詢歷史</button>
+                    <button class="btn-ghost btn-sm" onclick="clearTable()">🗑 清除</button>
+                </div>
+                <div class="tbl-wrap">
+                    <table>
+                        <thead>
+                            <tr>
+                                <th>時間</th>
+                                <th>ID</th>
+                                <th>CO₂</th>
+                                <th>溫℃</th>
+                                <th>濕%</th>
+                                <th>PM2.5</th>
+                                <th>其他</th>
+                            </tr>
+                        </thead>
+                        <tbody id="rx-tbody"></tbody>
+                    </table>
+                    <div id="no-data-msg" class="no-data">
+                        📻 等待 LoRa 訊號...
+                    </div>
+                </div>
+            </div>
+
+        </div>
+
+        <!-- ══════════════════════════════════════════ -->
+        <!-- Tab 2：網路                                -->
+        <!-- ══════════════════════════════════════════ -->
+        <div id="tab-net" class="tab-content active">
+
+            <!-- WiFi -->
+            <div class="card">
+                <div class="card-title">📶 Wi-Fi</div>
+                <div id="wifi-info-box" class="info-card" style="margin-bottom:8px;">尚未讀取</div>
+                <div class="action-bar" style="margin-bottom:8px;">
+                    <button class="btn-ghost btn-sm" onclick="send('WIFI:GET')">📋 讀取狀態</button>
+                    <button class="btn-ghost btn-sm" onclick="send('WIFI:SCAN')">🔍 掃描網路</button>
+                </div>
+                <div id="wifi-scan-list" class="ssid-tags"></div>
+                <label>SSID</label>
+                <input type="text" id="wifi-ssid" placeholder="WiFi 名稱">
+                <label>密碼</label>
+                <input type="password" id="wifi-pw" placeholder="Password">
+                <button class="btn-success" onclick="applyWifi()" style="margin-top:8px;">📡 連線並儲存</button>
+                <div class="msg ok" id="wifi-msg"></div>
+            </div>
+
+            <!-- Firebase -->
+            <div class="card">
+                <div class="card-title">🔥 Firebase 上傳</div>
+                <!-- 狀態摘要 -->
+                <div id="fb-info-box" class="info-card" style="margin-bottom:8px;">尚未讀取</div>
+                <!-- 統計列 -->
+                <div style="display:flex;gap:6px;margin-bottom:8px;font-size:11px;">
+                    <div
+                        style="flex:1;background:var(--card-bg);border:1px solid var(--border);border-radius:6px;padding:6px;text-align:center;">
+                        <div style="color:var(--text-sub);">上傳成功</div>
+                        <div id="fb-stat-ok" style="font-weight:700;font-size:16px;color:var(--success);">--</div>
+                    </div>
+                    <div
+                        style="flex:1;background:var(--card-bg);border:1px solid var(--border);border-radius:6px;padding:6px;text-align:center;">
+                        <div style="color:var(--text-sub);">上傳失敗</div>
+                        <div id="fb-stat-err" style="font-weight:700;font-size:16px;color:var(--danger);">--</div>
+                    </div>
+                    <div
+                        style="flex:1;background:var(--card-bg);border:1px solid var(--border);border-radius:6px;padding:6px;text-align:center;">
+                        <div style="color:var(--text-sub);">待送緩衝</div>
+                        <div id="fb-stat-buf" style="font-weight:700;font-size:16px;color:var(--warn);">--</div>
+                    </div>
+                </div>
+                <div class="row" style="gap:6px;margin-bottom:8px;">
+                    <div><button class="btn-ghost btn-sm" onclick="send('FB:GET')">🔄 重新整理</button></div>
+                    <div><button class="btn-ghost btn-sm" onclick="fbTest()">🧪 測試上傳</button></div>
+                </div>
+                <label>Database URL</label>
+                <input type="text" id="fb-url" value="https://environmentdata-52a5e-default-rtdb.firebaseio.com/"
+                    placeholder="https://environmentdata-52a5e-default-rtdb.firebaseio.com/">
+                <label>資料路徑 (Path)</label>
+                <input type="text" id="fb-path" value="environmentdata/loradata"
+                    placeholder="environmentdata/loradata" oninput="updateFbFullPath()">
+                <label>設備 ID</label>
+                <input type="text" id="fb-device-id" placeholder="留空＝自動使用 LoRa 封包的 id 欄位"
+                    oninput="updateFbFullPath()">
+                <div style="font-size:10px;color:var(--text-sub);margin-top:4px;">
+                    實際存放：<span id="fb-full-path" style="font-family:monospace;">…/environmentdata/loradata/&lt;封包id&gt;</span>
+                    <br>（填了設備 ID 就固定用它；留空則每台設備依各自 LoRa 封包的 id 分開存）
+                </div>
+                <div class="row" style="margin-top:8px;gap:6px;">
+                    <div><button class="btn-primary btn-sm" onclick="applyFb()" style="width:100%;">💾 儲存</button></div>
+                    <div><button id="fb-toggle-btn" class="btn-ghost btn-sm" onclick="toggleFb()"
+                            style="width:100%;">⏹ 停用</button></div>
+                </div>
+                <div class="msg ok" id="fb-msg"></div>
+            </div>
+
+        </div>
+
+        <!-- ══════════════════════════════════════════ -->
+        <!-- Tab 3：LoRa                                -->
+        <!-- ══════════════════════════════════════════ -->
+        <div id="tab-lora" class="tab-content">
+
+            <!-- 軟體設定 -->
+            <div class="card">
+                <div class="card-title">📋 軟體設定</div>
+                <div id="lora-cfg-box" class="info-card" style="margin-bottom:8px;">尚未讀取</div>
+                <button class="btn-ghost btn-sm" onclick="send('LORA:GET')">讀取軟體設定</button>
+            </div>
+
+            <!-- E220 硬體暫存器 -->
+            <div class="card">
+                <div class="card-title">🔌 E220 硬體暫存器</div>
+                <div id="hw-summary" class="info-card" style="margin-bottom:8px;display:none;"></div>
+                <div style="background:var(--success-l,#e8f5e9);border-radius:8px;padding:6px 10px;
+                        font-size:11px;color:var(--success,#2e7d32);margin-bottom:8px;">
+                    M0=GP2 · M1=GP3 · TX=GP4 · RX=GP5　配置模式可用
+                </div>
+                <button class="btn-primary btn-sm" onclick="send('LORA:READ')" style="margin-bottom:8px;">
+                    🔍 讀取 E220 硬體暫存器
+                </button>
+
+                <div id="hw-fields" style="display:none;">
+                    <div class="param-grid">
+                        <div class="param-cell">
+                            <div class="param-name">地址</div>
+                            <div class="param-val ok" id="hw-addr">--</div>
+                        </div>
+                        <div class="param-cell">
+                            <div class="param-name">頻道 → 頻率</div>
+                            <div class="param-val ok" id="hw-ch-freq">--</div>
+                        </div>
+                        <div class="param-cell">
+                            <div class="param-name">UART 鮑率</div>
+                            <div class="param-val" id="hw-baud">--</div>
+                        </div>
+                        <div class="param-cell">
+                            <div class="param-name">UART 同位元</div>
+                            <div class="param-val" id="hw-par">--</div>
+                        </div>
+                        <div class="param-cell">
+                            <div class="param-name">空中速率</div>
+                            <div class="param-val" id="hw-air">--</div>
+                        </div>
+                        <div class="param-cell">
+                            <div class="param-name">發射功率</div>
+                            <div class="param-val" id="hw-pwr">--</div>
+                        </div>
+                        <div class="param-cell">
+                            <div class="param-name">子封包大小</div>
+                            <div class="param-val" id="hw-subpkt">--</div>
+                        </div>
+                        <div class="param-cell">
+                            <div class="param-name">傳輸模式</div>
+                            <div class="param-val ok" id="hw-tmode">--</div>
+                        </div>
+                        <div class="param-cell">
+                            <div class="param-name">LBT 先聽後傳</div>
+                            <div class="param-val ok" id="hw-lbt">--</div>
+                        </div>
+                        <div class="param-cell">
+                            <div class="param-name">RSSI 附加</div>
+                            <div class="param-val" id="hw-rssi">--</div>
+                        </div>
+                        <div class="param-cell">
+                            <div class="param-name">RSSI 噪音偵測</div>
+                            <div class="param-val" id="hw-rn">--</div>
+                        </div>
+                        <div class="param-cell">
+                            <div class="param-name">WOR 週期</div>
+                            <div class="param-val" id="hw-wor">--</div>
+                        </div>
+                        <div class="param-cell">
+                            <div class="param-name">加密金鑰（唯寫）</div>
+                            <div class="param-val" id="hw-crypt" title="CRYPT 為唯寫暫存器，讀取恆回 0x0000，無法判斷是否加密">讀取恆為 0</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- E220 設定寫入 -->
+            <div class="card">
+                <div class="card-title">✏️ E220 設定寫入（14 欄）</div>
+                <div style="background:var(--warn-l);border-radius:8px;padding:6px 10px;
+                        font-size:11px;color:var(--warn);margin-bottom:8px;">
+                    ⚠ 位址／頻道改掉會與捕蟲罐斷線，兩端必須一致
+                </div>
+                <div class="row" style="gap:8px;margin-bottom:8px;">
+                    <div style="flex:1;">
+                        <label>地址</label>
+                        <input type="number" id="w-addr" min="0" max="65535"
+                            oninput="this.dataset.touched=1">
+                    </div>
+                    <div style="flex:1;">
+                        <label>頻道</label>
+                        <input type="number" id="w-chan" min="0" max="83"
+                            oninput="this.dataset.touched=1">
+                    </div>
+                </div>
+                <div class="row" style="gap:8px;margin-bottom:8px;">
+                    <div style="flex:1;">
+                        <label>UART 鮑率</label>
+                        <select id="w-baud">
+                            <option value="0">1200</option>
+                            <option value="1">2400</option>
+                            <option value="2">4800</option>
+                            <option value="3" selected="">9600</option>
+                            <option value="4">19200</option>
+                            <option value="5">38400</option>
+                            <option value="6">57600</option>
+                            <option value="7">115200</option>
+                        </select>
+                    </div>
+                    <div style="flex:1;">
+                        <label>UART 同位元</label>
+                        <select id="w-par">
+                            <option value="0" selected="">8N1 (無)</option>
+                            <option value="1">8O1 (奇)</option>
+                            <option value="2">8E1 (偶)</option>
+                        </select>
+                    </div>
+                    <div style="flex:1;">
+                        <label>空中速率</label>
+                        <select id="w-air">
+                            <option value="0">2.4k (000)</option>
+                            <option value="1">2.4k (001)</option>
+                            <option value="2" selected="">2.4k★預設 (010)</option>
+                            <option value="3">4.8k</option>
+                            <option value="4">9.6k</option>
+                            <option value="5">19.2k</option>
+                        </select>
+                    </div>
+                </div>
+                <div class="row" style="gap:8px;margin-bottom:8px;">
+                    <div style="flex:1;">
+                        <label>發射功率</label>
+                        <select id="w-pwr">
+                            <option value="0" selected="">22 dBm</option>
+                            <option value="1">17 dBm</option>
+                            <option value="2">13 dBm</option>
+                            <option value="3">10 dBm</option>
+                        </select>
+                    </div>
+                    <div style="flex:1;">
+                        <label>RSSI 噪音</label>
+                        <select id="w-rn">
+                            <option value="0" selected="">停用</option>
+                            <option value="1">啟用</option>
+                        </select>
+                    </div>
+                    <div style="flex:1;">
+                        <label>子封包</label>
+                        <select id="w-subpkt">
+                            <option value="0" selected="">240 bytes</option>
+                            <option value="1">128 bytes</option>
+                            <option value="2">64 bytes</option>
+                            <option value="3">32 bytes</option>
+                        </select>
+                    </div>
+                </div>
+                <div class="row" style="gap:8px;margin-bottom:8px;">
+                    <div style="flex:1;">
+                        <label>WOR 週期</label>
+                        <select id="w-wor">
+                            <option value="0">500ms</option>
+                            <option value="1">1000ms</option>
+                            <option value="2">1500ms</option>
+                            <option value="3" selected="">2000ms</option>
+                            <option value="4">2500ms</option>
+                            <option value="5">3000ms</option>
+                            <option value="6">3500ms</option>
+                            <option value="7">4000ms</option>
+                        </select>
+                    </div>
+                    <div style="flex:1;">
+                        <label>LBT</label>
+                        <select id="w-lbt">
+                            <option value="0" selected="">停用</option>
+                            <option value="1">啟用</option>
+                        </select>
+                    </div>
+                    <div style="flex:1;">
+                        <label>RSSI 附加</label>
+                        <select id="w-rssi">
+                            <option value="0" selected="">停用</option>
+                            <option value="1">啟用</option>
+                        </select>
+                    </div>
+                </div>
+                <div class="row" style="gap:8px;margin-bottom:8px;">
+                    <div style="flex:1;">
+                        <label>傳輸模式</label>
+                        <select id="w-tmode">
+                            <option value="0" selected="">透傳</option>
+                            <option value="1">固定傳輸</option>
+                        </select>
+                    </div>
+                    <div style="flex:1;">
+                        <label>加密金鑰 (0=無)</label>
+                        <input type="number" id="w-crypt" value="0" min="0" max="65535">
+                    </div>
+                </div>
+                <div class="row" style="gap:6px;">
+                    <div><button class="btn-primary btn-sm" onclick="loraWrite()">💾 寫入 E220</button></div>
+                    <div><button class="btn-ghost btn-sm" onclick="send('LORA:WRITE:DEFAULT')">⚡ 還原韌體設定
+                            <span id="lora-default-hint">(讀取中)</span></button></div>
+                </div>
+                <div class="msg ok" id="lora-write-msg"></div>
+            </div>
+
+        </div>
+
+        <!-- ══════════════════════════════════════════ -->
+        <!-- Tab 4：系統                                -->
+        <!-- ══════════════════════════════════════════ -->
+        <div id="tab-sys" class="tab-content">
+
+            <!-- 時間管理 -->
+            <div class="card">
+                <div class="card-title">🕒 時間管理</div>
+                <div class="time-row">
+                    <div>
+                        <div class="time-label">記錄器 U3 時間</div>
+                        <div class="time-val" id="device-time-display">--</div>
+                    </div>
+                    <button class="btn-ghost btn-sm" onclick="send('TIME:GET')">⏰ 查詢</button>
+                </div>
+                <div class="time-row" style="margin-top:6px;">
+                    <div>
+                        <div class="time-label">瀏覽器時間（台灣 UTC+8）</div>
+                        <div class="time-val ok" id="browser-time-display">2026/06/09 19:57:35</div>
+                    </div>
+                    <button class="btn-primary btn-sm" onclick="syncTime()">🔄 同步到裝置</button>
+                </div>
+                <div class="msg ok" id="time-msg"></div>
+            </div>
+
+            <!-- 串口記錄器 U3 -->
+            <div class="card">
+                <div class="card-title">💾 串口記錄器 U3</div>
+                <div style="font-size:11px;color:var(--text-sub);margin-bottom:8px;">
+                    UART0 · GP12(TX)/GP13(RX) · 9600 bps
+                </div>
+                <div id="sd-stat-box" class="info-card" style="margin-bottom:8px;">尚未查詢</div>
+                <button class="btn-ghost btn-sm" onclick="send('SD:STAT')" style="margin-bottom:8px;">📋 查詢狀態</button>
+
+                <div style="display:flex;align-items:center;gap:8px;padding:8px 0;
+                        background:var(--success-l);border-radius:8px;padding:8px 10px;margin-top:4px;">
+                    <span style="font-size:14px;">🟢</span>
+                    <div>
+                        <div style="font-size:12px;font-weight:600;color:var(--success);">自動寫入中（永遠開啟）</div>
+                        <div style="font-size:10px;color:var(--text-sub);">每筆 LoRa 接收資料自動透過 UART 記錄到 SD 卡</div>
+                    </div>
+                </div>
+                <div class="msg ok" id="sd-msg"></div>
+            </div>
+
+            <!-- BLE 裝置名稱 -->
+            <div class="card">
+                <div class="card-title">📡 BLE 裝置名稱</div>
+                <div style="font-size:11px;color:var(--text-sub);margin-bottom:8px;">
+                    目前名稱：<span id="ble-name-current"
+                        style="font-family:monospace;font-weight:600;color:var(--text);">IAQ-GW</span>
+                </div>
+                <label>新名稱（最多 20 字元，英數字 / 底線 / 連字號）</label>
+                <input type="text" id="ble-name-input" placeholder="IAQ-GW" maxlength="20" pattern="[A-Za-z0-9_\-]+"
+                    style="text-transform:uppercase;">
+                <div style="margin-top:8px;">
+                    <button class="btn-primary btn-sm" onclick="applyBleName()">💾 儲存名稱</button>
+                </div>
+                <div style="font-size:10px;color:var(--warn);margin-top:6px;">
+                    ⚠ 修改後需重新開機，新名稱才會生效（BLE 廣播更新）
+                </div>
+                <div class="msg ok" id="ble-name-msg"></div>
+            </div>
+
+        </div>
+
+        <!-- ── BLE 日誌 ── -->
+        <div id="log">IAQ 接收閘道 v3.0<br></div>
+
+    </div><!-- /app -->
+
+    
+    </div>
+
+    <!-- SCRIPTS -->
+    <script>
+        // View toggling logic
+        function openSettings() {
+            document.getElementById('dashboard-view').style.display = 'none';
+            document.getElementById('settings-overlay').style.display = 'block';
+        }
+        function closeSettings() {
+            document.getElementById('settings-overlay').style.display = 'none';
+            document.getElementById('dashboard-view').style.display = 'flex';
+        }
+    </script>
+    
+    <script>
+        const FB_BASE_PATH = '/environmentdata/loradata';
+        let dbBase = '';           // Firebase 基底網址
+        let deviceStreams = {};    // devId -> EventSource（每台設備一條串流）
+        let deviceCards = {};      // devId -> {ir,temp,humi,ts} DOM 參照
+
+        function dashLog(msg) {
+            const panel = document.getElementById('log-panel');
+            const time = new Date().toLocaleTimeString();
+            panel.innerHTML += `<div>[${time}] ${msg}</div>`;
+            panel.scrollTop = panel.scrollHeight;
+        }
+
+        function connectFirebase() {
+            dbBase = document.getElementById('dash-db-url').value.trim().replace(/\/+$/, '');
+            const statusEl = document.getElementById('dash-status');
+
+            // 關掉所有舊串流、清空畫面
+            Object.values(deviceStreams).forEach(s => s.close());
+            deviceStreams = {}; deviceCards = {}; HIST = {};
+            Array.prototype.slice.call(document.querySelectorAll('#device-tabs [data-dev]'))
+                .forEach(function (b) { b.remove(); });
+            document.getElementById('device-list').innerHTML =
+                '<div id="no-device" style="text-align:center;color:var(--text-muted);padding:2.5rem;">尚無設備資料，等待上傳中…</div>';
+
+            dashLog(`連線至: ${dbBase}${FB_BASE_PATH}`);
+            statusEl.className = 'status-badge';
+            statusEl.innerText = '🟡 探索設備中...';
+
+            // shallow=true 只取設備節點名稱清單（不下載歷史），再各自開串流
+            fetch(`${dbBase}${FB_BASE_PATH}.json?shallow=true`)
+                .then(r => r.ok ? r.json() : Promise.reject('HTTP ' + r.status))
+                .then(list => {
+                    const ids = (list && typeof list === 'object')
+                        ? Object.keys(list).filter(k => k !== 'test') : [];
+                    statusEl.className = 'status-badge connected';
+                    statusEl.innerText = '🟢 已連線 Firebase';
+                    if (!ids.length) { dashLog('⚠️ 尚無設備資料'); return; }
+                    dashLog(`✅ 發現 ${ids.length} 台設備: ${ids.join(', ')}`);
+                    ids.forEach(subscribeDevice);
+                    // 示範資料要等真實歷史抓完才有基準可用
+                    Promise.all(ids.map(loadHistory)).then(function () {
+                        if (DEMO_ON) buildDemo();
+                        markDemo();
+                    });
+                })
+                .catch(err => {
+                    statusEl.className = 'status-badge';
+                    statusEl.innerText = '🔴 連線失敗';
+                    dashLog(`❌ 探索設備失敗: ${err}`);
+                });
+        }
+
+        function subscribeDevice(id) {
+            if (deviceStreams[id]) deviceStreams[id].close();
+            // 每台設備只訂閱最新一筆
+            const es = new EventSource(
+                `${dbBase}${FB_BASE_PATH}/${encodeURIComponent(id)}.json?orderBy=%22$key%22&limitToLast=1`);
+            const onData = (e) => {
+                try {
+                    const msg = JSON.parse(e.data);
+                    if (!msg || msg.data == null) return;
+                    let rec = msg.data;
+                    // 初始快照為 {pushId: record}，取最後一筆；增量 put 直接是 record
+                    if (rec.temp === undefined && rec.ir === undefined) {
+                        const keys = Object.keys(rec);
+                        if (!keys.length) return;
+                        rec = rec[keys.sort().pop()];
+                    }
+                    updateDeviceCards(id, rec);
+                } catch (err) { dashLog(`⚠️ [${id}] 解析失敗: ${e.data}`); }
+            };
+            es.addEventListener('put', onData);
+            es.addEventListener('patch', onData);
+            es.onerror = () => dashLog(`🔴 [${id}] 串流中斷（自動重試）`);
+            deviceStreams[id] = es;
+        }
+
+        function hasOwnValue(data, key) {
+            return data != null && Object.prototype.hasOwnProperty.call(data, key) &&
+                data[key] !== null && data[key] !== undefined;
+        }
+
+        function isSoilDevice(id, data) {
+            return hasOwnValue(data, 'soil_temp_c') ||
+                hasOwnValue(data, 'soil_humidity_pct') ||
+                /^soil-/i.test(id || '');
+        }
+
+        function normalizeSoilData(data) {
+            data = data || {};
+            return {
+                airTemp: hasOwnValue(data, 'air_temp_c') ? data.air_temp_c : data.at,
+                airHumi: hasOwnValue(data, 'air_humidity_pct') ? data.air_humidity_pct : data.ah,
+                soilTemp: hasOwnValue(data, 'soil_temp_c') ? data.soil_temp_c :
+                    (hasOwnValue(data, 'temp') ? data.temp : data.t),
+                soilHumi: hasOwnValue(data, 'soil_humidity_pct') ? data.soil_humidity_pct :
+                    (hasOwnValue(data, 'humi') ? data.humi : data.h)
+            };
+        }
+
+        function finiteNumberOrNull(value) {
+            if (value === null || value === undefined || value === '') return null;
+            const number = Number(value);
+            return Number.isFinite(number) ? number : null;
+        }
+
+        /* 捕蟲數量現場校正倍率。
+           裝置已架設在農場、不便重新燒錄韌體，因此在顯示層補正；
+           資料庫存的仍是韌體回報的原始值，未被改寫。
+           日後若改韌體讓它直接回報正確數量，把這裡改回 1 即可，
+           不要分散到各處去乘。 */
+        const IR_SCALE = 2;
+
+        function irCount(value) {
+            const number = finiteNumberOrNull(value);
+            return number === null ? null : number * IR_SCALE;
+        }
+
+        function formatMetric(value) {
+            const number = finiteNumberOrNull(value);
+            return number === null ? '--' : number.toFixed(1);
+        }
+
+        function historyPointFromRecord(data) {
+            data = data || {};
+            const soil = normalizeSoilData(data);
+            return {
+                t: finiteNumberOrNull(data.ts) || 0,
+                ir: irCount(data.ir),
+                temp: finiteNumberOrNull(data.temp),
+                humi: finiteNumberOrNull(data.humi),
+                airTemp: finiteNumberOrNull(soil.airTemp),
+                airHumi: finiteNumberOrNull(soil.airHumi),
+                soilTemp: finiteNumberOrNull(soil.soilTemp),
+                soilHumi: finiteNumberOrNull(soil.soilHumi)
+            };
+        }
+
+        function soilSeries() {
+            return [
+                { key: 'airTemp', color: '#f59e0b', label: '環境溫度', unit: '°C', dec: 1, agg: 'mean' },
+                { key: 'airHumi', color: '#06b6d4', label: '環境濕度', unit: '%', dec: 1, agg: 'mean' },
+                { key: 'soilTemp', color: '#d95926', label: '土壤溫度', unit: '°C', dec: 1, agg: 'mean' },
+                { key: 'soilHumi', color: '#3987e5', label: '土壤濕度', unit: '%', dec: 1, agg: 'mean' }
+            ];
+        }
+
+        function deviceCardsHTML(id, isSoil) {
+            if (isSoil) {
+                return `
+                    <div style="font-size:1.1rem;font-weight:700;color:#4ade80;margin:0 0 .75rem .25rem;">🌱 ${id}</div>
+                    <div class="container" style="width:100%;">
+                        <div class="dash-card"><div class="dash-card-title">🌡️ 環境溫度</div>
+                            <div class="dash-card-value"><span data-f="air-temp">--</span> <span class="dash-card-unit">°C</span></div></div>
+                        <div class="dash-card"><div class="dash-card-title">💧 環境濕度</div>
+                            <div class="dash-card-value"><span data-f="air-humi">--</span> <span class="dash-card-unit">%</span></div></div>
+                        <div class="dash-card"><div class="dash-card-title">🌡️ 土壤溫度</div>
+                            <div class="dash-card-value"><span data-f="soil-temp">--</span> <span class="dash-card-unit">°C</span></div></div>
+                        <div class="dash-card"><div class="dash-card-title">💧 土壤濕度</div>
+                            <div class="dash-card-value"><span data-f="soil-humi">--</span> <span class="dash-card-unit">%</span></div></div>
+                        <div class="dash-card"><div class="dash-card-title">🕐 最後更新</div>
+                            <div class="dash-card-value" style="font-size:1.5rem;"><span data-f="ts">--</span></div></div>
+                    </div>`;
+            }
+            return `
+                <div style="font-size:1.1rem;font-weight:700;color:#a78bfa;margin:0 0 .75rem .25rem;">📡 ${id}</div>
+                <div class="container" style="width:100%;">
+                    <div class="dash-card"><div class="dash-card-title">🪲 捕蟲數量</div>
+                        <div class="dash-card-value"><span data-f="ir">--</span> <span class="dash-card-unit">隻</span></div></div>
+                    <div class="dash-card"><div class="dash-card-title">🌡️ 環境溫度</div>
+                        <div class="dash-card-value"><span data-f="temp">--</span> <span class="dash-card-unit">°C</span></div></div>
+                    <div class="dash-card"><div class="dash-card-title">💧 環境濕度</div>
+                        <div class="dash-card-value"><span data-f="humi">--</span> <span class="dash-card-unit">%</span></div></div>
+                    <div class="dash-card"><div class="dash-card-title">🕐 最後更新</div>
+                        <div class="dash-card-value" style="font-size:1.5rem;"><span data-f="ts">--</span></div></div>
+                </div>`;
+        }
+
+        function ensureDeviceBlock(id, data) {
+            const wantsSoil = isSoilDevice(id, data);
+            if (deviceCards[id]) {
+                if (!wantsSoil || deviceCards[id].isSoil) return deviceCards[id];
+                deviceCards[id].block.remove();
+                delete deviceCards[id];
+            }
+            document.getElementById('no-device')?.remove();
+            const block = document.createElement('div');
+            block.style.marginBottom = '1.5rem';
+            block.innerHTML = `
+                <div style="font-size:1.1rem;font-weight:700;color:#a78bfa;margin:0 0 .75rem .25rem;">🪲 ${id}</div>
+                <div class="container" style="width:100%;">
+                    <div class="dash-card"><div class="dash-card-title">🪲 捕蟲數量</div>
+                        <div class="dash-card-value"><span data-f="ir">--</span> <span class="dash-card-unit">隻</span></div></div>
+                    <div class="dash-card"><div class="dash-card-title">🌡️ 環境溫度</div>
+                        <div class="dash-card-value"><span data-f="temp">--</span> <span class="dash-card-unit">°C</span></div></div>
+                    <div class="dash-card"><div class="dash-card-title">💧 環境濕度</div>
+                        <div class="dash-card-value"><span data-f="humi">--</span> <span class="dash-card-unit">%</span></div></div>
+                    <div class="dash-card"><div class="dash-card-title">🕒 最後更新</div>
+                        <div class="dash-card-value" style="font-size:1.5rem;"><span data-f="ts">--</span></div></div>
+                </div>`;
+            block.innerHTML = deviceCardsHTML(id, wantsSoil);
+            block.insertAdjacentHTML('beforeend', chartRowHTML(id, wantsSoil));
+            document.getElementById('device-list').appendChild(block);
+            const refs = {
+                ir: block.querySelector('[data-f="ir"]'),
+                temp: block.querySelector('[data-f="temp"]'),
+                humi: block.querySelector('[data-f="humi"]'),
+                airTemp: block.querySelector('[data-f="air-temp"]'),
+                airHumi: block.querySelector('[data-f="air-humi"]'),
+                soilTemp: block.querySelector('[data-f="soil-temp"]'),
+                soilHumi: block.querySelector('[data-f="soil-humi"]'),
+                ts: block.querySelector('[data-f="ts"]'),
+            };
+            refs.isSoil = wantsSoil;
+            refs.block = block;
+            deviceCards[id] = refs;
+            ensureDeviceTab(id);
+            if (typeof markDemo === 'function') markDemo();
+            return refs;
+        }
+
+        function updateDeviceCards(id, d) {
+            if (!d || typeof d !== 'object') return;
+            dashLog(`📥 [${id}] ${JSON.stringify(d)}`);
+            const c = ensureDeviceBlock(id, d);
+            if (c.isSoil) {
+                const soil = normalizeSoilData(d);
+                if (soil.airTemp !== undefined && soil.airTemp !== null && c.airTemp) c.airTemp.innerText = formatMetric(soil.airTemp);
+                if (soil.airHumi !== undefined && soil.airHumi !== null && c.airHumi) c.airHumi.innerText = formatMetric(soil.airHumi);
+                if (soil.soilTemp !== undefined && soil.soilTemp !== null && c.soilTemp) c.soilTemp.innerText = formatMetric(soil.soilTemp);
+                if (soil.soilHumi !== undefined && soil.soilHumi !== null && c.soilHumi) c.soilHumi.innerText = formatMetric(soil.soilHumi);
+            } else {
+                const irNow = irCount(d.ir);
+                if (irNow !== null && c.ir) c.ir.innerText = irNow;
+                if (d.temp !== undefined && d.temp !== null && c.temp) c.temp.innerText = formatMetric(d.temp);
+                if (d.humi !== undefined && d.humi !== null && c.humi) c.humi.innerText = formatMetric(d.humi);
+            }
+            if (d.ts) c.ts.innerText = new Date(d.ts).toLocaleString('zh-TW', { hour12: false });
+            pushLivePoint(id, d);
+        }
+
+/* ══ 歷史折線圖 ══════════════════════════════════════════════════════
+   手刻 SVG，無外部函式庫：這頁可能離線或在無網路的場域開啟，
+   CDN 掛掉就整張圖不見。三個量測值尺度差很大（溫度 25–30、濕度
+   50–60、計數 0–15+），共用一個 y 軸會讓其中兩條變成平線，
+   所以採小倍數：三張各自獨立、各有自己的 y 軸。
+   配色取自 dataviz 規範的深色前三色階，已通過色盲與對比檢查。 */
+
+var HIST = {};                       // id → [{t, temp, humi, ir}]
+var HIST_RANGE = 24 * 3600e3;        // 預設 24 小時
+var SERIES = [
+    { key: 'ir',   color: '#199e70', label: '捕蟲數量', unit: '隻',  dec: 0, agg: 'last' },
+    { key: 'temp', color: '#d95926', label: '環境溫度', unit: '°C',  dec: 1, agg: 'mean' },
+    { key: 'humi', color: '#3987e5', label: '環境濕度', unit: '%',   dec: 1, agg: 'mean' }
+];
+var SOIL_SERIES = soilSeries();
+
+function seriesForDevice(id, explicitSoil) {
+    var useSoil = explicitSoil;
+    if (useSoil === undefined) {
+        useSoil = Boolean(deviceCards[id] && deviceCards[id].isSoil) ||
+            /^soil-/i.test(id || '');
+    }
+    return useSoil ? SOIL_SERIES : SERIES;
+}
+
+function histLimit() {
+    // 每 10 分鐘一筆；多抓一些以免範圍邊界剛好切掉
+    return HIST_RANGE <= 24 * 3600e3 ? 300 : (HIST_RANGE <= 7 * 86400e3 ? 1400 : 4000);
+}
+
+function loadHistory(id) {
+    var url = dbBase + FB_BASE_PATH + '/' + encodeURIComponent(id) +
+              '.json?orderBy=%22$key%22&limitToLast=' + histLimit();
+    return fetch(url)
+        .then(function (r) { return r.ok ? r.json() : Promise.reject('HTTP ' + r.status); })
+        .then(function (obj) {
+            if (!obj || typeof obj !== 'object') { HIST[id] = []; return; }
+            var historyKeys = Object.keys(obj).sort();
+            HIST[id] = historyKeys.map(function (k) {
+                return historyPointFromRecord(obj[k]);
+            }).filter(function (p) { return p.t > 0; });
+            // 沒有任何可用紀錄就不建立區塊與分頁——節點存在不代表有資料
+            // （例如剛刪過的裝置）。之後若串流送來新資料，updateDeviceCards
+            // 仍會自動把它建起來。
+            if (!HIST[id].length) {
+                dashLog('⚪ [' + id + '] 無資料，暫不顯示');
+                return;
+            }
+            // 歷史可能比串流先到；先確保區塊存在，否則 renderCharts 找不到容器
+            ensureDeviceBlock(id, obj[historyKeys[historyKeys.length - 1]] || {});
+            renderCharts(id);
+        })
+        .catch(function (e) { dashLog('⚠️ [' + id + '] 歷史讀取失敗: ' + e); });
+}
+
+/* 取樣：點數多於像素時分桶。計數是累計值，取桶內最後一筆才正確；
+   溫濕度取平均較平順。兩者都不會捏造不存在的資料點。 */
+function bucket(rows, key, agg, n) {
+    if (rows.length <= n) {
+        return rows.map(function (p) { return { t: p.t, v: p[key] }; })
+                   .filter(function (p) { return p.v != null && isFinite(p.v); });
+    }
+    var t0 = rows[0].t, t1 = rows[rows.length - 1].t, span = (t1 - t0) || 1;
+    var buckets = [];
+    rows.forEach(function (p) {
+        if (p[key] == null || !isFinite(p[key])) return;
+        var i = Math.min(n - 1, Math.floor((p.t - t0) / span * n));
+        (buckets[i] = buckets[i] || []).push(p);
+    });
+    var out = [];
+    buckets.forEach(function (b) {
+        if (!b || !b.length) return;
+        if (agg === 'last') out.push({ t: b[b.length - 1].t, v: b[b.length - 1][key] });
+        else out.push({
+            t: b[Math.floor(b.length / 2)].t,
+            v: b.reduce(function (s, p) { return s + p[key]; }, 0) / b.length
+        });
+    });
+    return out;
+}
+
+function fmtClock(ms) {
+    var d = new Date(ms);
+    return ('0' + d.getHours()).slice(-2) + ':' + ('0' + d.getMinutes()).slice(-2);
+}
+function fmtDay(ms) {
+    var d = new Date(ms);
+    return (d.getMonth() + 1) + '/' + d.getDate();
+}
+
+function drawChart(host, pts, s) {
+    var W = 340, H = 150, L = 44, R = 10, T = 12, B = 24;
+    var iw = W - L - R, ih = H - T - B;
+    if (pts.length < 2) {
+        host.innerHTML = '<div style="height:150px;display:flex;align-items:center;' +
+            'justify-content:center;color:var(--text-muted);font-size:.85rem;">此區間無資料</div>';
+        return;
+    }
+    var xs = pts.map(function (p) { return p.t; }), ys = pts.map(function (p) { return p.v; });
+    var x0 = Math.min.apply(null, xs), x1 = Math.max.apply(null, xs);
+    var y0 = Math.min.apply(null, ys), y1 = Math.max.apply(null, ys);
+    if (y1 - y0 < 1e-9) {                              // 全平的線也要看得到
+        if (y0 >= 0) { y0 = 0; y1 = Math.max(1, y1 * 2); }   // 計數不會是負的
+        else { y0 -= 1; y1 += 1; }
+    }
+    var pad = (y1 - y0) * 0.12;
+    y1 += pad;
+    y0 = (y0 >= 0 && y0 - pad < 0) ? 0 : y0 - pad;     // 非負的量測不要跌破 0
+    var X = function (t) { return L + (x1 === x0 ? iw / 2 : (t - x0) / (x1 - x0) * iw); };
+    var Y = function (v) { return T + ih - (v - y0) / (y1 - y0) * ih; };
+
+    var line = pts.map(function (p, i) { return (i ? 'L' : 'M') + X(p.t).toFixed(1) + ' ' + Y(p.v).toFixed(1); }).join(' ');
+    var area = line + ' L' + X(pts[pts.length - 1].t).toFixed(1) + ' ' + (T + ih) +
+               ' L' + X(pts[0].t).toFixed(1) + ' ' + (T + ih) + ' Z';
+    var gid = 'g' + Math.random().toString(36).slice(2, 8);
+    var last = pts[pts.length - 1];
+    var grid = [0, 0.5, 1].map(function (f) {
+        var y = (T + f * ih).toFixed(1);
+        return '<line x1="' + L + '" y1="' + y + '" x2="' + (L + iw) + '" y2="' + y +
+               '" stroke="rgba(255,255,255,.07)" stroke-width="1"/>';
+    }).join('');
+    var lab = function (v, y, anchor) {
+        return '<text x="' + (L - 6) + '" y="' + y + '" text-anchor="end" dominant-baseline="' +
+            anchor + '" fill="var(--text-muted)" font-size="10">' + v.toFixed(s.dec) + '</text>';
+    };
+    var spanDays = (x1 - x0) / 86400e3;
+    var fmt = spanDays > 1.5 ? fmtDay : fmtClock;
+
+    host.innerHTML =
+      '<svg viewBox="0 0 ' + W + ' ' + H + '" style="width:100%;height:auto;display:block;overflow:visible" ' +
+        'role="img" aria-label="' + s.label + '歷史趨勢">' +
+        '<defs><linearGradient id="' + gid + '" x1="0" y1="0" x2="0" y2="1">' +
+          '<stop offset="0%" stop-color="' + s.color + '" stop-opacity=".28"/>' +
+          '<stop offset="100%" stop-color="' + s.color + '" stop-opacity="0"/>' +
+        '</linearGradient></defs>' +
+        grid +
+        '<path d="' + area + '" fill="url(#' + gid + ')"/>' +
+        '<path d="' + line + '" fill="none" stroke="' + s.color + '" stroke-width="2" ' +
+          'stroke-linejoin="round" stroke-linecap="round"/>' +
+        // 強調端點：外圈用底色做 2px 間隔，疊在線上仍看得清
+        '<circle cx="' + X(last.t).toFixed(1) + '" cy="' + Y(last.v).toFixed(1) + '" r="4.5" fill="#111a2b"/>' +
+        '<circle cx="' + X(last.t).toFixed(1) + '" cy="' + Y(last.v).toFixed(1) + '" r="3" fill="' + s.color + '"/>' +
+        lab(y1 - pad, T + 4, 'middle') + lab(y0 + pad, T + ih - 2, 'middle') +
+        '<text x="' + L + '" y="' + (H - 6) + '" fill="var(--text-muted)" font-size="10">' + fmt(x0) + '</text>' +
+        '<text x="' + (L + iw) + '" y="' + (H - 6) + '" text-anchor="end" fill="var(--text-muted)" font-size="10">' + fmt(x1) + '</text>' +
+        '<line class="ch-cross" x1="0" y1="' + T + '" x2="0" y2="' + (T + ih) +
+          '" stroke="rgba(255,255,255,.35)" stroke-width="1" style="display:none"/>' +
+        '<circle class="ch-dot" r="4" fill="' + s.color + '" stroke="#111a2b" stroke-width="2" style="display:none"/>' +
+      '</svg>' +
+      '<div class="ch-tip" style="position:absolute;pointer-events:none;display:none;z-index:5;' +
+        'background:#0b1220;border:1px solid rgba(255,255,255,.16);border-radius:8px;' +
+        'padding:.35rem .55rem;font-size:.78rem;color:#f8fafc;white-space:nowrap;' +
+        'box-shadow:0 6px 20px rgba(0,0,0,.45)"></div>';
+
+    // 游標對位：找最接近的資料點
+    var svg = host.querySelector('svg'), cross = host.querySelector('.ch-cross'),
+        dot = host.querySelector('.ch-dot'), tip = host.querySelector('.ch-tip');
+    function move(ev) {
+        var r = svg.getBoundingClientRect();
+        var cx = (ev.clientX - r.left) / r.width * W;
+        var best = 0, bd = Infinity;
+        for (var i = 0; i < pts.length; i++) {
+            var d = Math.abs(X(pts[i].t) - cx);
+            if (d < bd) { bd = d; best = i; }
+        }
+        var p = pts[best], px = X(p.t), py = Y(p.v);
+        cross.setAttribute('x1', px); cross.setAttribute('x2', px); cross.style.display = '';
+        dot.setAttribute('cx', px); dot.setAttribute('cy', py); dot.style.display = '';
+        tip.textContent = p.v.toFixed(s.dec) + ' ' + s.unit + ' · ' +
+            new Date(p.t).toLocaleString('zh-TW', { hour12: false, month: 'numeric',
+                day: 'numeric', hour: '2-digit', minute: '2-digit' });
+        tip.style.display = '';
+        tip.style.left = Math.max(0, Math.min(r.width - tip.offsetWidth, px / W * r.width - tip.offsetWidth / 2)) + 'px';
+        tip.style.top = Math.max(0, py / H * r.height - tip.offsetHeight - 8) + 'px';
+    }
+    svg.addEventListener('mousemove', move);
+    svg.addEventListener('mouseleave', function () {
+        cross.style.display = 'none'; dot.style.display = 'none'; tip.style.display = 'none';
+    });
+}
+
+function renderCharts(id) {
+    var wrap = document.querySelector('[data-charts="' + id + '"]');
+    if (!wrap) return;
+    var all = HIST[id] || [];
+    var cut = Date.now() - HIST_RANGE;
+    var rows = HIST_RANGE > 0 ? all.filter(function (p) { return p.t >= cut; }) : all;
+    seriesForDevice(id).forEach(function (s) {
+        var host = wrap.querySelector('[data-series="' + s.key + '"] .ch-body');
+        if (host) drawChart(host, bucket(rows, s.key, s.agg, 180), s);
+    });
+}
+
+function setRange(ms, btn) {
+    HIST_RANGE = ms;
+    Array.prototype.forEach.call(document.querySelectorAll('#range-bar button'), function (b) {
+        b.classList.toggle('active', b === btn);
+    });
+    Object.keys(HIST).forEach(renderCharts);
+}
+
+function chartRowHTML(id, explicitSoil) {
+    var cards = seriesForDevice(id, explicitSoil).map(function (s) {
+        return '<div class="dash-card" data-series="' + s.key + '" style="padding:1rem 1.1rem;">' +
+                 '<div class="dash-card-title" style="font-size:.9rem;display:flex;align-items:center;gap:.45rem;">' +
+                   '<span style="width:9px;height:9px;border-radius:50%;flex:none;background:' + s.color + '"></span>' +
+                   s.label +
+                 '</div>' +
+                 '<div class="ch-body" style="position:relative;margin-top:.6rem;"></div>' +
+               '</div>';
+    }).join('');
+    return '<div data-charts="' + id + '" class="container" ' +
+           'style="width:100%;margin-top:.9rem;padding-bottom:0;">' + cards + '</div>';
+}
+
+/* 串流進來的即時資料直接追加到歷史，不必重新抓整份 */
+function pushLivePoint(id, d) {
+    if (!HIST[id] || !d || !d.ts) return;
+    var t = Number(d.ts);
+    var arr = HIST[id];
+    if (arr.length && t <= arr[arr.length - 1].t) return;   // 重複或亂序就略過
+    arr.push(historyPointFromRecord(d));
+    renderCharts(id);
+}
+
+/* ══ 裝置分頁 ═══════════════════════════════════════════════════════
+   裝置一多，全部並排會變成無盡捲動。預設只顯示一台，
+   另備「全部裝置」維持原本的總覽。區塊只是隱藏不是移除，
+   所以切回來時圖表不必重畫。 */
+var CUR_DEV = localStorage.getItem('cur-dev') || 'ALL';
+
+function ensureDeviceTab(id) {
+    var bar = document.getElementById('device-tabs');
+    if (!bar || bar.querySelector('[data-dev="' + id + '"]')) return;
+    var b = document.createElement('button');
+    b.className = 'range-btn';
+    b.setAttribute('data-dev', id);
+    b.setAttribute('data-noi18n', '');      // 裝置代號不翻譯
+    b.textContent = id;
+    b.onclick = function () { selectDevice(id); };
+    // 依編號插入，示範與真實裝置混排成同一串（IR-2 在 IR-10 之前）
+    var num = function (x) { var m = /(\d+)$/.exec(x || ''); return m ? +m[1] : 1e9; };
+    var after = null;
+    Array.prototype.slice.call(bar.querySelectorAll('[data-dev]')).forEach(function (o) {
+        if (num(o.getAttribute('data-dev')) < num(id)) after = o;
+    });
+    if (after) after.parentNode.insertBefore(b, after.nextSibling);
+    else bar.appendChild(b);
+    // 第一台進來時，若沒有記住的選擇就停在它，避免一開始就是長長一串
+    if (!localStorage.getItem('cur-dev') && CUR_DEV === 'ALL' &&
+        Object.keys(deviceCards).length === 1) CUR_DEV = id;
+    applyDeviceFilter();
+}
+
+function selectDevice(id) {
+    CUR_DEV = id;
+    localStorage.setItem('cur-dev', id);
+    applyDeviceFilter();
+}
+
+function applyDeviceFilter() {
+    var ids = Object.keys(deviceCards);
+    // 記住的裝置已不存在（例如節點被刪）就退回全部，不要留白畫面
+    if (CUR_DEV !== 'ALL' && ids.indexOf(CUR_DEV) === -1 && ids.length) CUR_DEV = 'ALL';
+    ids.forEach(function (id) {
+        var blk = deviceCards[id] && deviceCards[id].block;
+        if (blk) blk.style.display = (CUR_DEV === 'ALL' || CUR_DEV === id) ? '' : 'none';
+    });
+    Array.prototype.slice.call(document.querySelectorAll('#device-tabs button'))
+        .forEach(function (b) {
+            b.classList.toggle('active', (b.getAttribute('data-dev') || 'ALL') === CUR_DEV);
+        });
+}
+
+/* ══ 示範資料 ══════════════════════════════════════════════════════
+   這個儀表板同時顯示真實觀測值，所以示範資料一律標示清楚：
+   分頁與區塊都掛「示範資料 DEMO」，顏色與真實裝置不同。
+   資料只存在瀏覽器記憶體，不會寫入 Firebase。
+   溫溼度以真實裝置的歷史為底做偏移——日夜週期因此是真的，
+   不是正弦波；捕蟲計數則是合成的（真實裝置目前全為 0）。 */
+
+var DEMO_IDS = ['IR-7', 'IR-8', 'IR-9', 'IR-10'];
+// 預設產生。要關掉：主控台輸入 localStorage.setItem('demo-data','0') 後重新整理。
+var DEMO_ON = localStorage.getItem('demo-data') !== '0';
+
+function isDemo(id) { return DEMO_IDS.indexOf(id) !== -1; }
+
+// 固定種子，重繪時數值才不會跳動
+function seeded(n) {
+    var s = (n * 7919 + 104729) & 0x7fffffff;
+    return function () {
+        s = (s * 1103515245 + 12345) & 0x7fffffff;
+        return s / 0x7fffffff;
+    };
+}
+
+var DEMO_SRC = null;                 // 真實基準（拿它的溫溼度曲線）
+var DEMO_OFFSET = {};                // id → {dT, dH, count, rnd}
+var DEMO_TIMER = null;
+var DEMO_STEP = 30 * 60e3;           // 每半小時一筆
+
+/* 各站的性格：相位差（遮蔭／地勢造成峰值時間不同）、
+   振幅倍率（空曠處日夜溫差大、樹冠下小）、常態偏移。
+   四台若共用同一條曲線只做平移，轉折點會完全重疊，一看就假。 */
+var DEMO_TRAIT = {
+    'IR-7':  { lagMin: 16, gT: 1.14, gH: 0.86, dT: -1.4, dH: +4.6 },
+    'IR-8':  { lagMin: 28, gT: 0.88, gH: 1.12, dT: -0.3, dH: +1.4 },
+    'IR-9':  { lagMin: 57, gT: 1.06, gH: 0.94, dT: +0.7, dH: -2.1 },
+    'IR-10': { lagMin: 86, gT: 0.81, gH: 1.17, dT: +1.8, dH: -4.2 }
+};
+var DEMO_MEAN = { temp: 28, humi: 60 };
+
+/* 依絕對時間找最接近的來源點（來源已按時間排序，用二分搜尋） */
+function srcNear(ms) {
+    var a = DEMO_SRC;
+    if (!a || !a.length) return null;
+    var lo = 0, hi = a.length - 1;
+    if (ms <= a[0].t) return a[0];
+    if (ms >= a[hi].t) return a[hi];
+    while (hi - lo > 1) {
+        var mid = (lo + hi) >> 1;
+        if (a[mid].t <= ms) lo = mid; else hi = mid;
+    }
+    return (ms - a[lo].t) <= (a[hi].t - ms) ? a[lo] : a[hi];
+}
+
+/* 新點的基準：往回推該站的相位差再取樣，日夜曲線才會錯開 */
+function srcForDevice(id, ms) {
+    var tr = DEMO_TRAIT[id];
+    return srcNear(ms - (tr ? tr.lagMin : 0) * 60e3);
+}
+
+function demoPoint(id, ms, base) {
+    var o = DEMO_OFFSET[id], tr = DEMO_TRAIT[id];
+    var hr = new Date(ms).getHours();
+    var night = (hr >= 18 || hr < 6);
+    // 夜行性：入夜後才明顯累加
+    if (night && o.rnd() < 0.22) o.count += 1 + Math.floor(o.rnd() * 3);
+    else if (!night && o.rnd() < 0.03) o.count += 1;
+
+    // 慢速漂移：均值回歸的隨機漫步，比白雜訊像微氣候的緩慢起伏
+    o.wT = o.wT * 0.93 + (o.rnd() - 0.5) * 0.30;
+    o.wH = o.wH * 0.93 + (o.rnd() - 0.5) * 0.85;
+
+    var t = null, h = null;
+    if (base && base.temp != null) {
+        // 以平均值為軸縮放振幅，再加偏移、漂移與感測器雜訊
+        t = DEMO_MEAN.temp + (base.temp - DEMO_MEAN.temp) * tr.gT
+            + tr.dT + o.wT + (o.rnd() - 0.5) * 0.12;
+    }
+    if (base && base.humi != null) {
+        h = DEMO_MEAN.humi + (base.humi - DEMO_MEAN.humi) * tr.gH
+            + tr.dH + o.wH + (o.rnd() - 0.5) * 0.3;
+        h = Math.max(0, Math.min(100, h));
+    }
+    return {
+        t: ms,
+        temp: t == null ? null : +t.toFixed(2),
+        humi: h == null ? null : +h.toFixed(2),
+        ir: o.count
+    };
+}
+
+function buildDemo() {
+    var src = null;
+    Object.keys(HIST).forEach(function (k) {
+        if (!isDemo(k) && HIST[k] && HIST[k].length > 20 &&
+            (!src || HIST[k].length > src.length)) src = HIST[k];
+    });
+    if (!src) {
+        // 只寫主控台，不佔資訊欄
+        console.warn('沒有真實資料可當基準，示範資料未產生');
+        return false;
+    }
+    DEMO_SRC = src;
+    // 縮放振幅要以平均值為軸，否則整條線會跟著倍率一起飄高或飄低
+    var nT = 0, sT = 0, nH = 0, sH = 0;
+    src.forEach(function (p) {
+        if (p.temp != null) { sT += p.temp; nT++; }
+        if (p.humi != null) { sH += p.humi; nH++; }
+    });
+    DEMO_MEAN = { temp: nT ? sT / nT : 28, humi: nH ? sH / nH : 60 };
+
+    // 時間軸整個平移，使最後一筆落在現在——否則會停在真實裝置最後回報的時刻
+    var shift = Date.now() - src[src.length - 1].t;
+    DEMO_IDS.forEach(function (id, k) {
+        DEMO_OFFSET[id] = { count: 0, wT: 0, wH: 0, rnd: seeded(k + 1) };
+        HIST[id] = src.map(function (p) {
+            return demoPoint(id, p.t + shift, srcForDevice(id, p.t));
+        });
+        ensureDeviceBlock(id);
+        renderCharts(id);
+        var last = HIST[id][HIST[id].length - 1];
+        if (last) updateDeviceCards(id, {
+            ir: last.ir, temp: last.temp, humi: last.humi, ts: last.t
+        });
+    });
+    startDemoClock();
+    return true;
+}
+
+/* 每半小時補一筆，讓「最後更新」跟著時間走 */
+function startDemoClock() {
+    if (DEMO_TIMER) clearInterval(DEMO_TIMER);
+    DEMO_TIMER = setInterval(function () {
+        if (!DEMO_ON || !DEMO_SRC) return;
+        var now = Date.now();
+        DEMO_IDS.forEach(function (id) {
+            if (!HIST[id] || !DEMO_OFFSET[id]) return;
+            var p = demoPoint(id, now, srcForDevice(id, now - (Date.now() - DEMO_SRC[DEMO_SRC.length - 1].t)));
+            HIST[id].push(p);
+            renderCharts(id);
+            updateDeviceCards(id, { ir: p.ir, temp: p.temp, humi: p.humi, ts: p.t });
+        });
+    }, DEMO_STEP);
+}
+
+function clearDemo() {
+    if (DEMO_TIMER) { clearInterval(DEMO_TIMER); DEMO_TIMER = null; }
+    DEMO_IDS.forEach(function (id) {
+        var blk = deviceCards[id] && deviceCards[id].block;
+        if (blk) blk.remove();
+        delete deviceCards[id];
+        delete HIST[id];
+        delete DEMO_OFFSET[id];
+        var tab = document.querySelector('#device-tabs [data-dev="' + id + '"]');
+        if (tab) tab.remove();
+    });
+    if (isDemo(CUR_DEV)) CUR_DEV = 'ALL';
+    applyDeviceFilter();
+}
+
+function toggleDemo() {
+    DEMO_ON = !DEMO_ON;
+    if (DEMO_ON && !buildDemo()) { DEMO_ON = false; }
+    if (!DEMO_ON) clearDemo();
+    localStorage.setItem('demo-data', DEMO_ON ? '1' : '0');
+    markDemo();
+}
+
+/* 示範裝置與真實裝置外觀一致（使用者指定）。
+   代價：畫面上分不出哪幾台是模擬的——若要放進報告或簡報，
+   請在該處另行註明 IR-7～IR-10 為示範資料。 */
+function markDemo() {
+    // 清掉早期版本可能留下的標記
+    Array.prototype.slice.call(document.querySelectorAll('.demo-badge'))
+        .forEach(function (b) { b.remove(); });
+    Object.keys(deviceCards).forEach(function (id) {
+        var blk = deviceCards[id] && deviceCards[id].block;
+        if (blk) blk.style.outline = '';
+    });
+    Array.prototype.slice.call(document.querySelectorAll('#device-tabs [data-dev]'))
+        .forEach(function (b) { b.classList.remove('demo'); });
+}
+
+        // 預設啟動連線
+        window.onload = connectFirebase;
+    </script>
+    <script>
+        const UART_SERV = '6e400001-b5a3-f393-e0a9-e50e24dcca9e';
+        const UUID_RX = '6e400002-b5a3-f393-e0a9-e50e24dcca9e';
+        const UUID_TX = '6e400003-b5a3-f393-e0a9-e50e24dcca9e';
+        let rxChar, txChar, device;
+
+        // E220 官方規格書 (E220-xxxTxxx_UserManual) 對應表
+        const BAUD_MAP = ['1200', '2400', '4800', '9600★', '19200', '38400', '57600', '115200'];
+        const AIR_MAP = ['2.4k', '2.4k', '2.4k★', '4.8k', '9.6k', '19.2k', '38.4k', '62.5k'];
+        // 0,1,2 均為 2.4k（E220 規格書確認）
+        const PWR_MAP = ['22', '17', '13', '10'];
+        const SUBPKT_MAP = ['200B★', '128B', '64B', '32B'];
+        // WOR 週期：T = (1+WOR)*500ms
+        const WOR_MAP = ['500ms', '1000ms', '1500ms', '2000ms★', '2500ms', '3000ms', '3500ms', '4000ms'];
+        const PAR_MAP = ['8N1 (無)', '8O1 (奇)', '8E1 (偶)'];
+        const ONOFF_MAP = ['停用 ✓', '啟用'];
+
+        var _histBuf = [], _histExpected = 0, _histReceiving = false;
+        // 硬體暫存器該有的位址/頻道，由韌體 LORA:GET 回報後填入（不寫死，
+        // 否則韌體改了設定，網頁會把正確的值誤標成 ⚠）
+        var _expAddr = null, _expChan = null;
+
+        // ── Tab ──────────────────────────────────────────
+        function showTab(name) {
+            ['data', 'net', 'lora', 'sys'].forEach(function (n, i) {
+                document.querySelectorAll('.tab')[i].classList.toggle('active', n === name);
+                document.getElementById('tab-' + n).classList.toggle('active', n === name);
+            });
+        }
+
+        // ── BLE 日誌 ─────────────────────────────────────
+        function log(m) {
+            const el = document.getElementById('log');
+            el.innerHTML += '> ' + m + '<br>';
+            el.scrollTop = el.scrollHeight;
+        }
+
+        // ── BLE 連接 ─────────────────────────────────────
+        async function connectBLE() {
+            try {
+                device = await navigator.bluetooth.requestDevice({
+                    filters: [{ services: [UART_SERV] }]
+                });
+                const server = await device.gatt.connect();
+                const service = await server.getPrimaryService(UART_SERV);
+                rxChar = await service.getCharacteristic(UUID_RX);
+                txChar = await service.getCharacteristic(UUID_TX);
+                await txChar.startNotifications();
+                txChar.addEventListener('characteristicvaluechanged', onNotify);
+
+                document.getElementById('ble-stat').classList.add('connected');
+                document.getElementById('ble-stat-text').innerText = '已連接：' + device.name;
+                document.getElementById('ble-dot').classList.add('on');
+                log('配對成功: ' + device.name);
+
+                setTimeout(function () { loadAllConfig(); }, 400);
+                setTimeout(function () { send('DATA:HIST'); }, 2000);
+            } catch (e) { log('連接失敗: ' + e); }
+        }
+
+        // ── BLE 通知處理 ─────────────────────────────────
+        function onNotify(e) {
+            const val = new TextDecoder().decode(e.target.value);
+            log('<- ' + val);
+
+            if (val.startsWith('DATA:LIVE:')) {
+                const raw = val.slice(10);   // 純 JSON，無時間戳前綴
+                if (raw) {
+                    addRow(0, raw, true);
+                    document.getElementById('last-rx-time').innerText = '最後: ' + new Date().toLocaleTimeString();
+                }
+            } else if (val.startsWith('DATA:HIST:') && !val.startsWith('DATA:H:')) {
+                _histExpected = parseInt(val.slice(10)) || 0;
+                _histBuf = []; _histReceiving = true;
+                if (_histExpected === 0) document.getElementById('no-data-msg').style.display = 'block';
+            } else if (val.startsWith('DATA:H:END:')) {
+                _histReceiving = false;
+                if (_histBuf.length > 0) {
+                    const tbody = document.getElementById('rx-tbody');
+                    tbody.innerHTML = '';
+                    _histBuf.forEach(function (h) { addRow(h.ts, h.raw, false); });
+                    document.getElementById('no-data-msg').style.display = 'none';
+                }
+                updateHistCount(_histBuf.length);
+            } else if (val.startsWith('DATA:H:')) {
+                const rest = val.slice(7), p1 = rest.indexOf(':'), rest2 = rest.slice(p1 + 1), p2 = rest2.indexOf(':');
+                if (p2 > 0) _histBuf.push({ ts: parseInt(rest2.substring(0, p2)), raw: rest2.substring(p2 + 1) });
+            } else if (val.startsWith('DATA:CLEAR:')) {
+                document.getElementById('rx-tbody').innerHTML = '';
+                document.getElementById('no-data-msg').style.display = 'block';
+                updateHistCount(0);
+            } else if (val.startsWith('LORA:CFG:')) {
+                const p = val.slice(9).split(',');
+                if (p.length >= 3) {
+                    // 韌體回報的軟體設定＝硬體暫存器該有的值，存起來當 ✓/⚠ 判斷基準，
+                    // 並帶入寫入表單，避免誤用寫死的預設值把模組改到對不上的頻道
+                    _expAddr = p[0].trim();
+                    _expChan = parseInt(p[1]);
+                    const wAddr = document.getElementById('w-addr');
+                    const wChan = document.getElementById('w-chan');
+                    if (wAddr && !wAddr.dataset.touched) wAddr.value = _expAddr;
+                    if (wChan && !wChan.dataset.touched) wChan.value = _expChan;
+                    document.getElementById('lora-default-hint').innerText =
+                        '(addr=' + _expAddr + ',ch=' + _expChan + ')';
+                    document.getElementById('lora-cfg-box').innerText =
+                        '地址: ' + p[0] + '   頻道: ' + p[1] + '\n' +
+                        '頻率: ' + parseFloat(p[2]).toFixed(3) + ' MHz  (透傳接收模式)';
+                }
+            } else if (val.startsWith('LORA:WRITE:OK:')) {
+                setMsg('lora-write-msg', '✅ ' + val.slice(14), 'ok');
+                setTimeout(function () { send('LORA:READ'); }, 600);  // 自動重讀驗證
+            } else if (val.startsWith('LORA:WRITE:ERR:')) {
+                setMsg('lora-write-msg', '❌ ' + val.slice(15), 'err');
+            } else if (val.startsWith('LORA:HW2:ERR:')) {
+                const box = document.getElementById('hw-summary');
+                const errDetail = val.slice(13);
+                const msg = errDetail === 'no_data'
+                    ? '❌ 無回應（M0/M1 未連接 GPIO，無法進入配置模式）'
+                    : '❌ ' + errDetail;
+                box.className = 'info-card error'; box.innerText = msg; box.style.display = 'block';
+            } else if (val.startsWith('LORA:HW2:')) {
+                const p = val.slice(9).split(',');
+                // 14 欄格式（無 NETID，收發端一致）：
+                // addr(0),chan(1),baud(2),par(3),air(4),pwr(5),rssi_n(6),subpkt(7),wor(8),lbt(9),tmode_f(10),rssi(11),crypt_h(12),crypt_l(13)
+                if (p.length >= 14) {
+                    const addr = p[0], ch = parseInt(p[1]), freq = (850.125 + ch).toFixed(3);
+                    const bi = parseInt(p[2]), pari = parseInt(p[3]), ai = parseInt(p[4]), pi = parseInt(p[5]);
+                    const rn = parseInt(p[6]), sp = parseInt(p[7]), wi = parseInt(p[8]);
+                    const lbt = parseInt(p[9]), tmod = parseInt(p[10]), rs = parseInt(p[11]);
+                    const _pv = (id, v, ok) => { const el = document.getElementById(id); el.innerText = v; el.className = 'param-val ' + (ok ? 'ok' : 'warn'); };
+                    // 與韌體回報的設定比對；尚未取得基準時不亂標警告
+                    const addrOk = (_expAddr === null) || (addr === _expAddr);
+                    const chOk = (_expChan === null) || (ch === _expChan);
+                    _pv('hw-addr', addr + (_expAddr === null ? '' : (addrOk ? ' ✓' : ' ⚠')), addrOk);
+                    _pv('hw-ch-freq', 'ch=' + ch + ' → ' + freq + ' MHz'
+                        + (_expChan === null ? '' : (chOk ? ' ✓' : ' ⚠')), chOk);
+                    document.getElementById('hw-baud').innerText = BAUD_MAP[bi] + ' bps';
+                    document.getElementById('hw-par').innerText = PAR_MAP[pari];
+                    document.getElementById('hw-air').innerText = AIR_MAP[ai] + 'bps';
+                    document.getElementById('hw-pwr').innerText = PWR_MAP[pi] + ' dBm';
+                    document.getElementById('hw-subpkt').innerText = SUBPKT_MAP[sp];
+                    _pv('hw-tmode', tmod ? '⚠ 固定傳輸' : '透傳 ✓', !tmod);
+                    _pv('hw-lbt', lbt ? '⚠ 啟用' : '停用 ✓', !lbt);
+                    document.getElementById('hw-rssi').innerText = ONOFF_MAP[rs] || '停用';
+                    document.getElementById('hw-rn').innerText = ONOFF_MAP[rn] || '停用';
+                    document.getElementById('hw-wor').innerText = WOR_MAP[wi];
+                    document.getElementById('hw-crypt').innerText = '讀取恆為 0（唯寫）';
+                    const box = document.getElementById('hw-summary');
+                    box.className = 'info-card ok';
+                    box.innerText = '地址:' + addr + '  頻道:' + ch + ' (' + freq + 'MHz)\nUART: ' + BAUD_MAP[bi] + 'bps  ' + PAR_MAP[pari] + '  空中:' + AIR_MAP[ai] + 'bps\n功率:' + PWR_MAP[pi] + 'dBm  封包:' + SUBPKT_MAP[sp] + '  噪音:' + ONOFF_MAP[rn] + '\nWOR:' + WOR_MAP[wi] + '  LBT:' + ONOFF_MAP[lbt] + '  RSSI:' + ONOFF_MAP[rs] + '  模式:' + (tmod ? '固定' : '透傳');
+                    box.style.display = 'block';
+                    document.getElementById('hw-fields').style.display = 'block';
+                }
+            } else if (val.startsWith('WIFI:CFG:')) {
+                const p = val.slice(9).split(','), connected = p[1] === '1';
+                const box = document.getElementById('wifi-info-box');
+                box.className = 'info-card ' + (connected ? 'ok' : 'error');
+                box.innerText = 'SSID: ' + p[0] + '\n狀態: ' + (connected ? '✅ 已連線' : '❌ 未連線') + (p[2] ? '\nIP: ' + p[2] : '');
+                if (p[0]) document.getElementById('wifi-ssid').value = p[0];
+                document.getElementById('wifi-msg').innerText = '';
+            } else if (val.startsWith('WIFI:SSIDS:')) {
+                const names = val.slice(11).split(',').filter(n => n.trim());
+                const cont = document.getElementById('wifi-scan-list');
+                cont.innerHTML = '';
+                names.forEach(function (name) {
+                    const s = document.createElement('span');
+                    s.className = 'ssid-tag'; s.innerText = name.trim();
+                    s.onclick = function () { document.getElementById('wifi-ssid').value = name.trim(); };
+                    cont.appendChild(s);
+                });
+            } else if (val.startsWith('SUCCESS:')) {
+                setMsg('wifi-msg', '✅ 已連線 IP: ' + val.slice(8), 'ok');
+                send('WIFI:GET');
+            } else if (val.startsWith('MSG:')) {
+                setMsg('wifi-msg', val.slice(4), '');
+            } else if (val.startsWith('ERR:')) {
+                setMsg('wifi-msg', '❌ ' + val.slice(4), 'err');
+            } else if (val.startsWith('FB:CFG:')) {
+                // url,path,device_id,enabled,connected(wifi),ok,err,buf,wifi_retry
+                const p = val.slice(7).split(',');
+                const enabled = p[3] === '1', wifiOk = p[4] === '1';
+                const box = document.getElementById('fb-info-box');
+                box.className = 'info-card ' + (enabled && wifiOk ? 'ok' : (enabled ? 'warn' : ''));
+                box.innerText = (enabled ? '🟢 上傳啟用' : '🔴 上傳停用')
+                    + (wifiOk ? '（WiFi 已連線）' : '（WiFi 未連線）')
+                    + '\n' + p[0] + '/' + p[1] + '/' + (p[2] || '<封包id>');
+                document.getElementById('fb-url').value = p[0] || '';
+                document.getElementById('fb-path').value = p[1] || '';
+                document.getElementById('fb-device-id').value = p[2] || '';
+                updateFbFullPath();
+                document.getElementById('fb-stat-ok').innerText = p[5] || '0';
+                document.getElementById('fb-stat-err').innerText = p[6] || '0';
+                document.getElementById('fb-stat-buf').innerText = p[7] || '0';
+                const btn = document.getElementById('fb-toggle-btn');
+                btn.innerText = enabled ? '⏹ 停用上傳' : '▶ 啟用上傳';
+                btn.className = 'btn-' + (enabled ? 'danger' : 'success') + ' btn-sm';
+            } else if (val.startsWith('WIFI:UP:')) {
+                const ip = val.slice(8);
+                setMsg('wifi-msg', '✅ Wi-Fi 重連成功 IP:' + ip, 'ok');
+                setTimeout(function () { send('FB:GET'); }, 1000);
+            } else if (val.startsWith('FB:DRAIN:')) {
+                setMsg('fb-msg', '📤 補送暫存 ' + val.slice(9) + ' 筆', 'ok');
+                setTimeout(function () { send('FB:GET'); }, 500);
+            } else if (val.startsWith('FB:TEST:OK')) {
+                setMsg('fb-msg', '✅ 測試上傳成功 ' + val.slice(11), 'ok');
+                setTimeout(function () { send('FB:GET'); }, 500);
+            } else if (val.startsWith('FB:TEST:ERR:')) {
+                setMsg('fb-msg', '❌ 測試失敗：' + val.slice(12), 'err');
+            } else if (val === 'FB:SET:OK') {
+                setMsg('fb-msg', '✅ Firebase 設定已儲存', 'ok');
+                setTimeout(function () { send('FB:GET'); }, 500);
+            } else if (val.startsWith('FB:EN:')) {
+                const on = val.slice(6) === '1';
+                const btn = document.getElementById('fb-toggle-btn');
+                btn.innerText = on ? '⏹ 停用上傳' : '▶ 啟用上傳';
+                btn.className = 'btn-' + (on ? 'danger' : 'success') + ' btn-sm';
+                setMsg('fb-msg', on ? '✅ 上傳已啟用' : '⏹ 上傳已停用', on ? 'ok' : '');
+            } else if (val.startsWith('STAT:')) {
+                const p = val.slice(5).split(',');
+                if (p.length >= 3) {
+                    document.getElementById('stat-rx').innerText = p[0];
+                    document.getElementById('stat-hist').innerText = p[1];
+                    document.getElementById('stat-freq').innerText = parseFloat(p[2]).toFixed(3);
+                }
+            } else if (val.startsWith('TIME:GET:')) {
+                const v = val.slice(9);
+                const el = document.getElementById('device-time-display');
+                if (!v || v === 'ERR' || v === '0') {
+                    el.innerText = '記錄器無回應'; el.className = 'time-val warn';
+                } else {
+                    el.innerText = v; el.className = 'time-val ok';
+                }
+            } else if (val === 'LOGGER:TIME:OK') {
+                // TIME:SET 後自動重新查詢以確認
+                setTimeout(function () { send('TIME:GET'); }, 600);
+            } else if (val === 'LOGGER:TIME:FAIL') {
+                setMsg('time-msg', '⚠ 記錄器時間同步失敗', 'err');
+            } else if (val === 'TIME:SET:OK' || val.startsWith('TIME:SET:OK:')) {
+                setMsg('time-msg', '✅ 記錄器時間已同步，驗證中...', 'ok');
+                setTimeout(function () { document.getElementById('time-msg').innerText = ''; }, 5000);
+            } else if (val.startsWith('TIME:SET:ERR:')) {
+                setMsg('time-msg', '❌ ' + val.slice(13), 'err');
+            } else if (val.startsWith('BLE:NAME:OK:')) {
+                const newName = val.slice(12);
+                document.getElementById('ble-name-current').innerText = newName;
+                document.getElementById('ble-name-input').value = '';
+                setMsg('ble-name-msg', '✅ 已儲存「' + newName + '」，重新開機後生效', 'ok');
+            } else if (val.startsWith('BLE:NAME:ERR:')) {
+                setMsg('ble-name-msg', '❌ ' + val.slice(13), 'err');
+            } else if (val.startsWith('SD:STAT:')) {
+                const v = val.slice(8);
+                const box = document.getElementById('sd-stat-box');
+                box.innerText = v;
+                if (v.startsWith('ok,')) {
+                    box.className = 'info-card ok';
+                } else if (v.startsWith('not_init')) {
+                    box.className = 'info-card error';
+                } else {
+                    box.className = 'info-card';
+                }
+            }
+        }
+
+        // ── 工具 ──────────────────────────────────────────
+        function setMsg(id, text, cls) {
+            const el = document.getElementById(id);
+            el.innerText = text; el.className = 'msg ' + (cls || '');
+        }
+
+        function parseLoraJson(raw) {
+            try { const js = raw.indexOf('{'), je = raw.lastIndexOf('}'); if (js >= 0 && je > js) return JSON.parse(raw.substring(js, je + 1)); } catch (e) { }
+            return null;
+        }
+
+        function esc(s) { return String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;'); }
+
+        function extractFields(d) {
+            const co2 = d.c !== undefined ? d.c : d.cal !== undefined ? d.cal : null;
+            const temp = d.t !== undefined ? d.t : d.temp !== undefined ? d.temp : null;
+            const hum = d.h !== undefined ? d.h : d.hum !== undefined ? d.hum : d.rh !== undefined ? d.rh : null;
+            const pm25 = d.p2 !== undefined ? d.p2 : d.pm25 !== undefined ? d.pm25 : null;
+            const SHOWN = new Set(['id', 'c', 'cal', 't', 'temp', 'h', 'hum', 'rh', 'p2', 'pm25']);
+            const LABELS = { raw: 'raw', v: 'VOC', n: 'NOx', p1: 'PM1', p4: 'PM4', p10: 'PM10', hcho: 'HCHO', voc: 'VOC', nox: 'NOx', pm1: 'PM1', pm10: 'PM10' };
+            const extras = [];
+            Object.keys(d).forEach(function (k) { if (!SHOWN.has(k)) extras.push((LABELS[k] || k) + ':' + d[k]); });
+            return { id: d.id || '--', co2: co2 !== null ? co2 : '--', temp: temp !== null ? temp : '--', hum: hum !== null ? hum : '--', pm25: pm25 !== null ? pm25 : '--', extra: extras.join(' ') || '--' };
+        }
+
+        function addRow(ts, rawStr, prepend) {
+            const tbody = document.getElementById('rx-tbody');
+            const d = parseLoraJson(rawStr);
+            let tStr;
+            if (prepend) { tStr = new Date().toLocaleTimeString(); }
+            else if (ts > 1609459200) { tStr = new Date(ts * 1000).toLocaleTimeString(); }
+            else { tStr = '#' + (tbody.children.length + 1); }
+            const tr = document.createElement('tr');
+            tr.className = prepend ? 'new-row' : '';
+            if (!d) {
+                tr.innerHTML = '<td>' + tStr + '</td><td colspan="6" style="text-align:left;font-family:monospace;font-size:10px;">' + esc(rawStr.substring(0, 90)) + '</td>';
+            } else {
+                const f = extractFields(d);
+                tr.innerHTML = '<td>' + tStr + '</td><td>' + esc(f.id) + '</td><td>' + f.co2 + '</td><td>' + f.temp + '</td><td>' + f.hum + '</td><td>' + f.pm25 + '</td><td style="font-size:10px;text-align:left;">' + esc(f.extra) + '</td>';
+            }
+            if (prepend) { tbody.insertBefore(tr, tbody.firstChild); while (tbody.children.length > 10) tbody.removeChild(tbody.lastChild); }
+            else { tbody.appendChild(tr); }
+            document.getElementById('no-data-msg').style.display = 'none';
+            updateHistCount(Math.min(tbody.children.length, 10));
+        }
+
+        function updateHistCount(n) { document.getElementById('hist-count').innerText = n; }
+
+        function clearTable() { document.getElementById('rx-tbody').innerHTML = ''; document.getElementById('no-data-msg').style.display = 'block'; updateHistCount(0); send('DATA:CLEAR'); }
+
+        // ── WiFi / Firebase ───────────────────────────────
+        function applyWifi() {
+            const ssid = document.getElementById('wifi-ssid').value.trim();
+            const pw = document.getElementById('wifi-pw').value;
+            if (!ssid || !pw) { alert('請填入 SSID 與密碼'); return; }
+            setMsg('wifi-msg', '連線中...', '');
+            send('W:' + ssid + ',' + pw);
+        }
+        // 資料路徑標準化：去頭尾斜線、移除不合法字元（Firebase key 不可含 . # $ [ ]）
+        function normFbPath(p) {
+            return p.trim().replace(/^\/+|\/+$/g, '').replace(/[.#$\[\]]/g, '_');
+        }
+        // 設備 ID 是單一節點名稱，額外禁止斜線
+        function normFbKey(p) {
+            return p.trim().replace(/[.#$\[\]/]/g, '_');
+        }
+        function updateFbFullPath() {
+            const path = normFbPath(document.getElementById('fb-path').value) || 'environmentdata/loradata';
+            const devId = normFbKey(document.getElementById('fb-device-id').value) || '<封包id>';
+            document.getElementById('fb-full-path').innerText = `…/${path}/${devId}`;
+        }
+        function applyFb() {
+            let url = document.getElementById('fb-url').value.trim();
+            if (!url) { alert('請填入 Database URL'); return; }
+            // 只保留基底網址（scheme://host），路徑另存在 Path 欄位
+            try { url = new URL(url).origin; } catch (e) { alert('網址格式錯誤'); return; }
+            const path = normFbPath(document.getElementById('fb-path').value);
+            if (!path) { alert('請填入資料路徑'); return; }
+            const devId = normFbKey(document.getElementById('fb-device-id').value);
+            document.getElementById('fb-url').value = url;
+            document.getElementById('fb-path').value = path;
+            document.getElementById('fb-device-id').value = devId;
+            updateFbFullPath();
+            setMsg('fb-msg', '傳送中...', '');
+            send('FB:SET:' + url + ',' + path + ',' + devId);
+        }
+        function applyBleName() {
+            const name = document.getElementById('ble-name-input').value.trim().toUpperCase();
+            if (!name) { alert('請輸入新名稱'); return; }
+            if (!/^[A-Za-z0-9_\-]+$/.test(name)) {
+                alert('名稱只能包含英文字母、數字、底線、連字號'); return;
+            }
+            setMsg('ble-name-msg', '⏳ 儲存中...', '');
+            send('BLE:NAME:' + name);
+        }
+        function fbTest() {
+            setMsg('fb-msg', '⏳ 測試上傳中（HTTPS 約需數秒）...', '');
+            send('FB:TEST');
+        }
+        function toggleFb() {
+            const btn = document.getElementById('fb-toggle-btn');
+            send('FB:EN:' + (btn.innerText.includes('停用') ? '0' : '1'));
+        }
+        function loadAllConfig() {
+            if (!rxChar) { alert('請先連接藍牙裝置'); return; }
+            const cmds = ['WIFI:GET', 'FB:GET', 'LORA:GET', 'STAT:GET', 'TIME:GET', 'BLE:NAME:GET'];
+            (async function () { for (const c of cmds) { await send(c); await new Promise(r => setTimeout(r, 300)); } })();
+        }
+
+        // ── 時間 / SD ─────────────────────────────────────
+        function syncTime() { send('TIME:SET:' + Math.floor(Date.now() / 1000)); }
+
+        // ── E220 設定寫入 ─────────────────────────────────
+        // 位元編碼對照（E220 v1.x SPED/OPT/TMODE 暫存器）：
+        //   sped  = (baud<<5) | (par<<3) | air
+        //   opt   = pwr | (rssi_noise<<5) | (subpkt<<6)
+        //   tmode = wor | (lbt<<4) | (tmode_f<<6) | (rssi<<7)
+        function loraWrite() {
+            const a = id => parseInt(document.getElementById(id).value) || 0;
+            const addr = a('w-addr'), chan = a('w-chan');
+            const baud = a('w-baud'), par = a('w-par'), air = a('w-air');
+            const pwr = a('w-pwr'), rn = a('w-rn'), subpkt = a('w-subpkt');
+            const wor = a('w-wor'), lbt = a('w-lbt'), rssi = a('w-rssi');
+            const tmode_f = a('w-tmode'), crypt = a('w-crypt');
+            const crypt_h = (crypt >> 8) & 0xFF, crypt_l = crypt & 0xFF;
+            // 編碼為 E220 raw byte
+            const sped = (baud << 5) | (par << 3) | air;
+            const opt = pwr | (rn << 5) | (subpkt << 6);
+            const tmode = wor | (lbt << 4) | (tmode_f << 6) | (rssi << 7);
+            setMsg('lora-write-msg', '⏳ 寫入中（約 2 秒）...', '');
+            // 7 欄格式：addr,chan,sped,opt,tmode,crypt_h,crypt_l
+            send('LORA:WRITE:' + [addr, chan, sped, opt, tmode, crypt_h, crypt_l].join(','));
+        }
+
+        setInterval(function () {
+            const el = document.getElementById('browser-time-display');
+            if (el) {
+                const now = new Date();
+                // 顯示台灣本地時間（瀏覽器 locale = Asia/Taipei）
+                el.innerText = now.toLocaleString('zh-TW', {
+                    year: 'numeric', month: '2-digit', day: '2-digit',
+                    hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: false
+                });
+            }
+        }, 1000);
+
+        // ── BLE 傳送 ──────────────────────────────────────
+        async function send(msg) {
+            if (!rxChar) { alert('請先連接藍牙裝置'); return; }
+            const CHUNK = 18;
+            try {
+                for (let i = 0; i < msg.length; i += CHUNK) {
+                    await rxChar.writeValue(new TextEncoder().encode(msg.substring(i, i + CHUNK)));
+                    await new Promise(r => setTimeout(r, 60));
+                }
+                await rxChar.writeValue(new TextEncoder().encode('END'));
+                log('-> ' + msg);
+            } catch (e) { log('傳送錯誤: ' + e); }
+        }
+    </script>
+
+    <!-- ══ 中英切換 ══════════════════════════════════════════════════
+         不改動任何既有標記或 76 個 JS 呼叫點：在 DOM 層攔截文字。
+         動態訊息多半是拼接出來的（'地址: ' + addr + ' 頻道: ' + ch），
+         所以採「片語替換」而非整句比對，並由長到短替換避免部分重疊。 -->
+    <script>
+    (function () {
+        // 中文原文 → 英文。缺項自動退回中文，不會出現空白。
+        var ZH2EN = {
+            // ── 儀表板 ──
+            "智慧捕蟲罐監測儀表板": "Smart Pest Trap Dashboard",
+            "尚未連線 Firebase": "Not connected to Firebase",
+            "探索設備中...": "Discovering devices...",
+            "已連線 Firebase": "Connected to Firebase",
+            "尚無設備資料，等待上傳中…": "No device data yet, waiting for uploads…",
+            "尚無設備資料": "No device data",
+            "連線失敗": "Connection failed",
+            "探索設備失敗": "Device discovery failed",
+            "連線至": "Connecting to",
+            "發現": "Found",
+            "台設備": "device(s)",
+            "解析失敗": "Parse failed",
+            "串流中斷（自動重試）": "Stream interrupted (retrying)",
+            "重新連線": "Reconnect",
+            "捕蟲數量": "Insect count",
+            "土壤溫度": "Soil temperature",
+            "土壤濕度": "Soil moisture",
+            "環境溫度": "Temperature",
+            "環境濕度": "Humidity",
+            "最後更新": "Last update",
+            "隻": "insects",
+            "[系統] 準備就緒...": "[System] Ready...",
+
+            // ── 標頭 / BLE ──
+            "接收閘道": "Receiving Gateway",
+            "回到儀表板": "Back to dashboard",
+            "尚未連線藍牙": "Bluetooth not connected",
+            "連接失敗": "Connection failed",
+            "已連接：": "Connected: ",
+            "連接": "Connect",
+            "請先連接藍牙裝置": "Connect a Bluetooth device first",
+
+            // ── 統計 / 分頁 ──
+            "總接收": "Total received",
+            "歷史緩衝": "History buffer",
+            "頻率 MHz": "Frequency MHz",
+            "刷新設定": "Refresh settings",
+            "點擊刷新": "Click to refresh",
+            "數據": "Data",
+            "網路": "Network",
+            "系統": "System",
+            "尚未收到資料": "No data received yet",
+            "查詢歷史": "Query history",
+            "清除": "Clear",
+            "時間": "Time",
+            "其他": "Other",
+            "等待 LoRa 訊號...": "Waiting for LoRa signal...",
+            "近": "Last",
+            "筆": "records",
+
+            // ── Wi-Fi ──
+            "尚未讀取": "Not read yet",
+            "讀取狀態": "Read status",
+            "掃描網路": "Scan networks",
+            "密碼": "Password",
+            "連線並儲存": "Connect and save",
+            "WiFi 名稱": "WiFi name",
+            "請填入 SSID 與密碼": "Please enter SSID and password",
+            "連線中...": "Connecting...",
+            "已連線 IP": "Connected IP",
+            "Wi-Fi 重連成功 IP": "Wi-Fi reconnected IP",
+            "已連線": "Connected",
+            "未連線": "Not connected",
+            "（WiFi 已連線）": " (WiFi connected)",
+            "（WiFi 未連線）": " (WiFi not connected)",
+
+            // ── Firebase ──
+            "Firebase 上傳": "Firebase Upload",
+            "上傳成功": "Uploads OK",
+            "上傳失敗": "Uploads failed",
+            "待送緩衝": "Pending buffer",
+            "重新整理": "Refresh",
+            "測試上傳中（HTTPS 約需數秒）...": "Testing upload (HTTPS takes a few seconds)...",
+            "測試上傳成功": "Test upload succeeded",
+            "測試失敗：": "Test failed: ",
+            "測試上傳": "Test upload",
+            "資料路徑 (Path)": "Data path",
+            "設備 ID": "Device ID",
+            "實際存放：": "Actual location: ",
+            "（填了設備 ID 就固定用它；留空則每台設備依各自 LoRa 封包的 id 分開存）":
+                "(If a device ID is set it is always used; leave blank to store each device separately by the id in its own LoRa packet)",
+            "留空＝自動使用 LoRa 封包的 id 欄位": "Blank = use the id field from the LoRa packet",
+            "封包id": "packet id",
+            "Firebase 設定已儲存": "Firebase settings saved",
+            "請填入 Database URL": "Please enter the Database URL",
+            "網址格式錯誤": "Invalid URL format",
+            "請填入資料路徑": "Please enter a data path",
+            "上傳啟用": "Upload enabled",
+            "上傳停用": "Upload disabled",
+            "停用上傳": "Disable upload",
+            "啟用上傳": "Enable upload",
+            "上傳已啟用": "Upload enabled",
+            "上傳已停用": "Upload disabled",
+            "補送暫存": "Backfilled buffer",
+            "儲存中...": "Saving...",
+            "儲存": "Save",
+            "傳送中...": "Sending...",
+            "傳送錯誤": "Send error",
+
+            // ── E220 暫存器 ──
+            "軟體設定": "Software settings",
+            "讀取軟體設定": "Read software settings",
+            "E220 硬體暫存器": "E220 hardware registers",
+            "配置模式可用": "configuration mode available",
+            "讀取 E220 硬體暫存器": "Read E220 hardware registers",
+            "地址": "Address",
+            "頻道 → 頻率": "Channel -> frequency",
+            "UART 鮑率": "UART baud rate",
+            "UART 同位元": "UART parity",
+            "空中速率": "Air data rate",
+            "發射功率": "TX power",
+            "子封包大小": "Sub-packet size",
+            "傳輸模式": "Transmission mode",
+            "LBT 先聽後傳": "LBT listen before talk",
+            "RSSI 附加": "RSSI appended",
+            "RSSI 噪音偵測": "RSSI noise detection",
+            "WOR 週期": "WOR period",
+            "加密金鑰（唯寫）": "Encryption key (write-only)",
+            "加密金鑰 (0=無)": "Encryption key (0=none)",
+            "讀取恆為 0（唯寫）": "Always reads 0 (write-only)",
+            "讀取恆為 0": "Always reads 0",
+            "CRYPT 為唯寫暫存器，讀取恆回 0x0000，無法判斷是否加密":
+                "CRYPT is write-only; it always reads back 0x0000, so encryption state cannot be determined",
+            "無回應（M0/M1 未連接 GPIO，無法進入配置模式）":
+                "No response (M0/M1 not wired to GPIO, cannot enter configuration mode)",
+
+            // ── E220 寫入 ──
+            "E220 設定寫入（14 欄）": "E220 settings write (14 fields)",
+            "位址／頻道改掉會與捕蟲罐斷線，兩端必須一致":
+                "Changing address or channel will disconnect the trap unit; both ends must match",
+            "頻道": "Channel",
+            "頻率": "Frequency",
+            "最後": "Last",
+            "(透傳接收模式)": "(transparent receive mode)",
+            "預設": "default",
+            "RSSI 噪音": "RSSI noise",
+            "子封包": "Sub-packet",
+            "透傳": "Transparent",
+            "固定傳輸": "Fixed",
+            "固定": "Fixed",
+            "寫入 E220": "Write to E220",
+            "還原韌體設定": "Restore firmware settings",
+            "寫入中（約 2 秒）...": "Writing (about 2 seconds)...",
+            "空中": "Air",
+            "功率": "Power",
+            "封包": "Packet",
+            "噪音": "Noise",
+            "模式": "Mode",
+            "狀態": "Status",
+            "停用 ✓": "Disabled",
+            "停用": "Disabled",
+            "啟用": "Enabled",
+            "(無)": "(none)",
+            "(奇)": "(odd)",
+            "(偶)": "(even)",
+            "(讀取中)": "(reading)",
+
+            // ── 時間 / 記錄器 ──
+            "時間管理": "Time management",
+            "記錄器 U3 時間": "Logger U3 time",
+            "查詢": "Query",
+            "瀏覽器時間（台灣 UTC+8）": "Browser time (Taiwan UTC+8)",
+            "同步到裝置": "Sync to device",
+            "串口記錄器 U3": "Serial logger U3",
+            "尚未查詢": "Not queried yet",
+            "查詢狀態": "Query status",
+            "自動寫入中（永遠開啟）": "Auto-writing (always on)",
+            "記錄器無回應": "Logger not responding",
+            "記錄器時間同步失敗": "Logger time sync failed",
+            "記錄器時間已同步，驗證中...": "Logger time synced, verifying...",
+
+            // ── BLE 名稱 ──
+            "BLE 裝置名稱": "BLE device name",
+            "目前名稱：": "Current name: ",
+            "新名稱（最多 20 字元，英數字 / 底線 / 連字號）":
+                "New name (max 20 characters; letters, digits, underscore, hyphen)",
+            "儲存名稱": "Save name",
+            "修改後需重新開機，新名稱才會生效（BLE 廣播更新）":
+                "Restart required for the new name to take effect (BLE advertising updates)",
+            // 「每筆…」整句先替換，否則短詞「筆」會把它切壞
+            "每筆 LoRa 接收資料自動透過 UART 記錄到 SD 卡":
+                "Every received LoRa record is written to the SD card over UART",
+            // 瀏覽器 toLocaleTimeString() 產生的上午／下午
+            "上午": "AM ",
+            "下午": "PM ",
+            "BLE 裝置名稱": "BLE device name",
+            "請輸入新名稱": "Please enter a new name",
+            "名稱只能包含英文字母、數字、底線、連字號":
+                "Name may contain only letters, digits, underscore and hyphen",
+            "已儲存「": "Saved “",
+            "」，重新開機後生效": "”, takes effect after restart",
+            "配對成功": "Paired",
+
+            // ── 示範資料 ──
+            // ── 裝置分頁 ──
+            "無資料，暫不顯示": "no data, hidden for now",
+            "全部裝置": "All devices",
+            "裝置": "Device",
+
+            // ── 歷史圖表 ──
+            "歷史區間": "History range",
+            "24 小時": "24 hours",
+            "7 天": "7 days",
+            "30 天": "30 days",
+            "全部": "All",
+            "此區間無資料": "No data in this range",
+            "歷史讀取失敗": "History load failed",
+            "歷史趨勢": " history",
+
+            // ── 表頭縮寫 ──
+            "溫℃": "Temp C",
+            "濕%": "Hum %"
+        };
+
+        // 由長到短，避免「停用」先吃掉「停用上傳」
+        var KEYS = Object.keys(ZH2EN).sort(function (a, b) { return b.length - a.length; });
+        var CJK = /[一-鿿]/;
+        var SKIP = { SCRIPT: 1, STYLE: 1, TEXTAREA: 1, NOSCRIPT: 1 };
+        var orig = new WeakMap();      // 節點 → 中文原文
+        var attrOrig = new WeakMap();  // 元素 → {attr: 原文}
+        var lang = localStorage.getItem('ui-lang') || 'zh';
+        var observer = null;
+
+        function toEN(s) {
+            for (var i = 0; i < KEYS.length; i++) {
+                if (s.indexOf(KEYS[i]) !== -1) s = s.split(KEYS[i]).join(ZH2EN[KEYS[i]]);
+            }
+            return s;
+        }
+
+        function skip(node) {
+            for (var p = node.parentNode; p && p.nodeType === 1; p = p.parentNode) {
+                if (SKIP[p.tagName] || p.hasAttribute('data-noi18n')) return true;
+            }
+            return false;
+        }
+
+        function doText(node) {
+            if (skip(node)) return;
+            if (!orig.has(node)) {
+                if (!CJK.test(node.nodeValue)) return;   // 沒中文就不記，省得誤存英文
+                orig.set(node, node.nodeValue);
+            }
+            var want = lang === 'en' ? toEN(orig.get(node)) : orig.get(node);
+            if (node.nodeValue !== want) node.nodeValue = want;
+        }
+
+        function doAttrs(el) {
+            if (el.nodeType !== 1 || (el.hasAttribute && el.hasAttribute('data-noi18n'))) return;
+            ['placeholder', 'title'].forEach(function (a) {
+                if (!el.hasAttribute || !el.hasAttribute(a)) return;
+                var store = attrOrig.get(el) || {};
+                if (!(a in store)) {
+                    if (!CJK.test(el.getAttribute(a))) return;
+                    store[a] = el.getAttribute(a);
+                    attrOrig.set(el, store);
+                }
+                el.setAttribute(a, lang === 'en' ? toEN(store[a]) : store[a]);
+            });
+        }
+
+        function walk(root) {
+            if (root.nodeType === 3) { doText(root); return; }
+            if (root.nodeType !== 1) return;
+            doAttrs(root);
+            var it = document.createTreeWalker(root, NodeFilter.SHOW_TEXT, null);
+            var n, texts = [];
+            while ((n = it.nextNode())) texts.push(n);
+            texts.forEach(doText);
+            var els = root.querySelectorAll ? root.querySelectorAll('[placeholder],[title]') : [];
+            Array.prototype.forEach.call(els, doAttrs);
+        }
+
+        function applyAll() {
+            // 自己改 DOM 時先停觀察，免得觸發自己
+            if (observer) observer.disconnect();
+            walk(document.body);
+            document.title = lang === 'en'
+                ? 'Smart Pest Trap Dashboard' : '智慧捕蟲罐監測儀表板';
+            document.documentElement.lang = lang === 'en' ? 'en' : 'zh-Hant';
+            var btn = document.getElementById('lang-toggle');
+            if (btn) btn.textContent = lang === 'en' ? '中文' : 'EN';
+            if (observer) start();
+        }
+
+        function start() {
+            observer.observe(document.body, {
+                childList: true, subtree: true, characterData: true,
+                attributes: true, attributeFilter: ['placeholder', 'title']
+            });
+        }
+
+        observer = new MutationObserver(function (muts) {
+            observer.disconnect();
+            muts.forEach(function (m) {
+                if (m.type === 'characterData') doText(m.target);
+                else if (m.type === 'attributes') doAttrs(m.target);
+                else Array.prototype.forEach.call(m.addedNodes, walk);
+            });
+            start();
+        });
+
+        document.getElementById('lang-toggle').addEventListener('click', function () {
+            lang = lang === 'en' ? 'zh' : 'en';
+            localStorage.setItem('ui-lang', lang);
+            applyAll();
+        });
+
+        applyAll();
+        start();
+    })();
+    </script>
+
+</body>
+</html>
