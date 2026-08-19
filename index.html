@@ -1036,10 +1036,47 @@
     <div id="range-bar" style="width:90%;max-width:1000px;display:flex;gap:.5rem;
          align-items:center;margin-bottom:1rem;flex-wrap:wrap;">
         <span style="color:var(--text-muted);font-size:.9rem;margin-right:.25rem;">歷史區間</span>
-        <button class="range-btn active" onclick="setRange(24*3600e3, this)">24 小時</button>
-        <button class="range-btn" onclick="setRange(7*86400e3, this)">7 天</button>
-        <button class="range-btn" onclick="setRange(30*86400e3, this)">30 天</button>
-        <button class="range-btn" onclick="setRange(0, this)">全部</button>
+        <!-- 手機上五顆按鈕會把畫面佔滿，改成下拉選單。
+             頁面有全域的 select{width:100%}，一定要明確覆寫成 auto，
+             否則會跟先前的日期欄一樣撐滿整行。 -->
+        <select id="range-select" onchange="setRange(Number(this.value))"
+                style="width:auto;padding:.35rem .55rem;font-size:.85rem;border-radius:.5rem;background:#f1f5f9;color:#1e293b;border:1px solid rgba(255,255,255,.25);">
+            <option value="86400000">24 小時</option>
+            <option value="259200000">3 天</option>
+            <option value="604800000">7 天</option>
+            <option value="2592000000">30 天</option>
+            <option value="0">全部</option>
+            <!-- 選了起訖日期時顯示這個，讓下拉不會停在一個沒在生效的值 -->
+            <option value="-1" disabled>指定區間</option>
+        </select>
+        <span style="color:var(--text-muted);font-size:.9rem;margin-left:.5rem;">指定區間</span>
+        <!-- 日期用「按鈕 + 透明 input 疊上去」的作法：頁面有全域的
+             input{width:100%}，直接放 input 會撐滿整行。透明 input 蓋在按鈕
+             上，按鈕負責顯示（未選是圖示，選完顯示日期）。
+             點擊時呼叫 showPicker() 直接開日曆——在 Chrome 只點輸入框本身
+             是不會跳日曆的，一定要點日曆圖示或呼叫這個 API。
+             舊瀏覽器沒有 showPicker() 就退回原本的鍵盤輸入，不會壞掉。 -->
+        <span style="position:relative;display:inline-flex;">
+            <button class="range-btn" id="hist-from-btn" type="button" data-noi18n
+                    title="起日">📅</button>
+            <input type="date" id="hist-from" onchange="setSpan()" title="起日"
+                   onclick="try{this.showPicker()}catch(e){}"
+                   style="position:absolute;inset:0;width:100%;height:100%;margin:0;padding:0;border:0;opacity:0;cursor:pointer;color-scheme:dark;">
+        </span>
+        <span style="color:var(--text-muted);font-size:.9rem;">~</span>
+        <span style="position:relative;display:inline-flex;">
+            <button class="range-btn" id="hist-to-btn" type="button" data-noi18n
+                    title="迄日（含當天）">📅</button>
+            <input type="date" id="hist-to" onchange="setSpan()" title="迄日（含當天）"
+                   onclick="try{this.showPicker()}catch(e){}"
+                   style="position:absolute;inset:0;width:100%;height:100%;margin:0;padding:0;border:0;opacity:0;cursor:pointer;color-scheme:dark;">
+        </span>
+        <button class="range-btn" id="hist-span-clear" onclick="clearSpan()"
+                style="display:none;">✕ 取消區間</button>
+        <button class="range-btn" onclick="exportCsv('window')"
+                title="把目前顯示的區間匯出成 CSV">⬇ CSV 目前區間</button>
+        <button class="range-btn" onclick="exportCsv('all')"
+                title="把全部歷史匯出成 CSV">⬇ CSV 全部</button>
     </div>
 
     <!-- 每台設備一組卡片，由 JS 依 Firebase 內的設備節點動態產生 -->
@@ -1541,6 +1578,7 @@
             // 關掉所有舊串流、清空畫面
             Object.values(deviceStreams).forEach(s => s.close());
             deviceStreams = {}; deviceCards = {}; HIST = {};
+            HIST_LIMIT_USED = 0;   // 舊快取作廢，下次依區間重抓
             Array.prototype.slice.call(document.querySelectorAll('#device-tabs [data-dev]'))
                 .forEach(function (b) { b.remove(); });
             document.getElementById('device-list').innerHTML =
@@ -1690,7 +1728,10 @@
                 <div style="font-size:1.1rem;font-weight:700;color:#a78bfa;margin:0 0 .75rem .25rem;">📡 ${id}</div>
                 <div class="container" style="width:100%;">
                     <div class="dash-card"><div class="dash-card-title">🪲 捕蟲數量</div>
-                        <div class="dash-card-value"><span data-f="ir">--</span> <span class="dash-card-unit">隻</span></div></div>
+                        <div class="dash-card-value"><span data-f="ir">--</span> <span class="dash-card-unit">隻</span></div>
+                        <button class="range-btn" onclick="cleanTrap('${id}')"
+                                style="margin-top:.65rem;font-size:.78rem;padding:.3rem .6rem;"
+                                title="清空捕蟲罐後按這裡，數量從 0 重新計算（舊資料保留）">🧹 清理捕蟲罐</button></div>
                     <div class="dash-card"><div class="dash-card-title">🌡️ 環境溫度</div>
                         <div class="dash-card-value"><span data-f="temp">--</span> <span class="dash-card-unit">°C</span></div></div>
                     <div class="dash-card"><div class="dash-card-title">💧 環境濕度</div>
@@ -1710,18 +1751,6 @@
             document.getElementById('no-device')?.remove();
             const block = document.createElement('div');
             block.style.marginBottom = '1.5rem';
-            block.innerHTML = `
-                <div style="font-size:1.1rem;font-weight:700;color:#a78bfa;margin:0 0 .75rem .25rem;">🪲 ${id}</div>
-                <div class="container" style="width:100%;">
-                    <div class="dash-card"><div class="dash-card-title">🪲 捕蟲數量</div>
-                        <div class="dash-card-value"><span data-f="ir">--</span> <span class="dash-card-unit">隻</span></div></div>
-                    <div class="dash-card"><div class="dash-card-title">🌡️ 環境溫度</div>
-                        <div class="dash-card-value"><span data-f="temp">--</span> <span class="dash-card-unit">°C</span></div></div>
-                    <div class="dash-card"><div class="dash-card-title">💧 環境濕度</div>
-                        <div class="dash-card-value"><span data-f="humi">--</span> <span class="dash-card-unit">%</span></div></div>
-                    <div class="dash-card"><div class="dash-card-title">🕒 最後更新</div>
-                        <div class="dash-card-value" style="font-size:1.5rem;"><span data-f="ts">--</span></div></div>
-                </div>`;
             block.innerHTML = deviceCardsHTML(id, wantsSoil);
             block.insertAdjacentHTML('beforeend', chartRowHTML(id, wantsSoil));
             document.getElementById('device-list').appendChild(block);
@@ -1754,7 +1783,7 @@
                 if (soil.soilTemp !== undefined && soil.soilTemp !== null && c.soilTemp) c.soilTemp.innerText = formatMetric(soil.soilTemp);
                 if (soil.soilHumi !== undefined && soil.soilHumi !== null && c.soilHumi) c.soilHumi.innerText = formatMetric(soil.soilHumi);
             } else {
-                const irNow = irCount(d.ir);
+                const irNow = cleanAdjust(id, Number(d.ts) || Date.now(), irCount(d.ir));
                 if (irNow !== null && c.ir) c.ir.innerText = irNow;
                 if (d.temp !== undefined && d.temp !== null && c.temp) c.temp.innerText = formatMetric(d.temp);
                 if (d.humi !== undefined && d.humi !== null && c.humi) c.humi.innerText = formatMetric(d.humi);
@@ -1771,7 +1800,92 @@
    配色取自 dataviz 規範的深色前三色階，已通過色盲與對比檢查。 */
 
 var HIST = {};                       // id → [{t, temp, humi, ir}]
-var HIST_RANGE = 24 * 3600e3;        // 預設 24 小時
+var HIST_RANGE = 24 * 3600e3;        // 相對區間（ms）；0 = 全部
+var HIST_FROM = null;                // 指定區間起日 00:00 的 ms；null = 未指定
+var HIST_TO = null;                  // 指定區間迄日 00:00 的 ms；null = 未指定
+var HIST_LIMIT_USED = 0;             // 目前 HIST 是用多大的 limitToLast 抓回來的
+
+/* 相對區間與指定日期統一成一個時間窗，畫圖與抓取都只看這個函式。
+   分成兩套判斷的話，總有一邊會忘記跟著改。 */
+function histWindow() {
+    // 起訖任一邊有填就進入指定區間模式；沒填的那一端不設限。
+    // 迄日要含當天整日，所以往後推一天再當成開區間的右界。
+    if (HIST_FROM !== null || HIST_TO !== null) {
+        return {
+            from: HIST_FROM !== null ? HIST_FROM : 0,
+            to: HIST_TO !== null ? HIST_TO + 86400e3 : Infinity
+        };
+    }
+    return { from: HIST_RANGE > 0 ? Date.now() - HIST_RANGE : 0, to: Infinity };
+}
+
+function spanActive() { return HIST_FROM !== null || HIST_TO !== null; }
+
+/* ══ 清理捕蟲罐 ══════════════════════════════════════════════════════
+   捕蟲罐的計數器是累計的：實體清空之後，韌體仍會從原本的數字繼續往上加。
+   這裡記下「清理當下的計數」當基準，之後顯示的都是扣掉基準的增量。
+   清理時間點之前的資料完全不動，圖上會出現鋸齒——那正是每次清空的痕跡。
+
+   基準只存在瀏覽器的 localStorage，不會寫進 Firebase：資料庫裡的原始
+   累計值一筆都沒有被改過，隨時可以還原。代價是換一台電腦或換瀏覽器看
+   不到這個基準。要跨裝置共用就得讓網頁寫入 Firebase，那要另外開權限。 */
+var CLEAN_KEY = 'trap-clean-baseline';
+var CLEAN = (function () {
+    try { return JSON.parse(localStorage.getItem(CLEAN_KEY)) || {}; }
+    catch (e) { return {}; }
+})();
+
+function saveClean() {
+    try { localStorage.setItem(CLEAN_KEY, JSON.stringify(CLEAN)); } catch (e) {}
+}
+
+/* 取 t 之前最後一次清理的基準並扣掉；沒清理過就原樣回傳 */
+function cleanAdjust(id, t, value) {
+    if (value == null) return value;
+    var evs = CLEAN[id];
+    if (!evs || !evs.length) return value;
+    var base = 0;
+    for (var i = 0; i < evs.length; i++) {
+        if (evs[i].ts <= t) base = evs[i].base; else break;
+    }
+    return Math.max(0, value - base);
+}
+
+function cleanTrap(id) {
+    var arr = HIST[id] || [];
+    var last = null;
+    for (var i = arr.length - 1; i >= 0; i--) {
+        if (arr[i].ir != null) { last = arr[i]; break; }
+    }
+    if (!last) { alert('目前沒有可用的捕蟲數量，無法設定歸零基準。'); return; }
+    var name = (typeof deviceLabel === 'function') ? deviceLabel(id) : id;
+    var when = new Date(last.t).toLocaleString('zh-TW', { hour12: false });
+    if (!confirm(
+            '確定要把「' + name + '」的捕蟲數量歸零嗎？\n\n' +
+            '目前數量：' + cleanAdjust(id, last.t, last.ir) + ' 隻\n' +
+            '歸零時間：' + when + '\n\n' +
+            '舊的數據一樣會在，請放心：\n' +
+            '• 資料庫裡的原始紀錄一筆都不會被刪除或修改\n' +
+            '• 這個時間點之前的歷史圖表維持原樣\n' +
+            '• 只有這個時間點之後的數量改為從 0 開始累計')) return;
+    (CLEAN[id] = CLEAN[id] || []).push({ ts: last.t, base: last.ir });
+    CLEAN[id].sort(function (a, b) { return a.ts - b.ts; });
+    saveClean();
+    dashLog('🧹 [' + id + '] 已於 ' + when + ' 歸零，舊資料保留');
+    var c = deviceCards[id];
+    if (c && c.ir) c.ir.innerText = cleanAdjust(id, last.t, last.ir);
+    renderCharts(id);
+}
+
+/* 誤按的話用這個復原上一次歸零（主控台輸入 undoClean('IR-5')） */
+function undoClean(id) {
+    if (!CLEAN[id] || !CLEAN[id].length) { dashLog('[' + id + '] 沒有歸零紀錄'); return; }
+    CLEAN[id].pop();
+    if (!CLEAN[id].length) delete CLEAN[id];
+    saveClean();
+    dashLog('↩️ [' + id + '] 已復原上一次歸零');
+    renderCharts(id);
+}
 var SERIES = [
     { key: 'ir',   color: '#199e70', label: '捕蟲數量', unit: '隻',  dec: 0, agg: 'last' },
     { key: 'temp', color: '#d95926', label: '環境溫度', unit: '°C',  dec: 1, agg: 'mean' },
@@ -1789,16 +1903,22 @@ function seriesForDevice(id, explicitSoil) {
 }
 
 function histLimit() {
-    // 每 10 分鐘一筆；多抓一些以免範圍邊界剛好切掉
-    return HIST_RANGE <= 24 * 3600e3 ? 300 : (HIST_RANGE <= 7 * 86400e3 ? 1400 : 4000);
+    // 每 10 分鐘一筆，回推時間窗最舊那一端需要幾筆，多抓 50% 當邊界餘裕。
+    // 用算的而不是寫死級距：之後再加區間按鈕不必回來改這裡。
+    var from = histWindow().from;
+    if (!from) return 20000;                       // 「全部」
+    var need = Math.ceil((Date.now() - from) / 600e3 * 1.5);
+    return Math.max(300, Math.min(20000, need));
 }
 
-function loadHistory(id) {
+function loadHistory(id, limitOverride) {
+    var limit = limitOverride || histLimit();
     var url = dbBase + FB_BASE_PATH + '/' + encodeURIComponent(id) +
-              '.json?orderBy=%22$key%22&limitToLast=' + histLimit();
+              '.json?orderBy=%22$key%22&limitToLast=' + limit;
     return fetch(url)
         .then(function (r) { return r.ok ? r.json() : Promise.reject('HTTP ' + r.status); })
         .then(function (obj) {
+            HIST_LIMIT_USED = Math.max(HIST_LIMIT_USED, limit);
             if (!obj || typeof obj !== 'object') { HIST[id] = []; return; }
             var historyKeys = Object.keys(obj).sort();
             HIST[id] = historyKeys.map(function (k) {
@@ -1948,20 +2068,201 @@ function renderCharts(id) {
     var wrap = document.querySelector('[data-charts="' + id + '"]');
     if (!wrap) return;
     var all = HIST[id] || [];
-    var cut = Date.now() - HIST_RANGE;
-    var rows = HIST_RANGE > 0 ? all.filter(function (p) { return p.t >= cut; }) : all;
+    var win = histWindow();
+    var rows = all.filter(function (p) { return p.t >= win.from && p.t < win.to; });
+    // 有歸零紀錄才複製一份改值，沒有就完全不動（多數裝置屬於後者）
+    if (CLEAN[id] && CLEAN[id].length) {
+        rows = rows.map(function (p) {
+            if (p.ir == null) return p;
+            var q = {};
+            for (var k in p) q[k] = p[k];
+            q.ir = cleanAdjust(id, p.t, p.ir);
+            return q;
+        });
+    }
     seriesForDevice(id).forEach(function (s) {
         var host = wrap.querySelector('[data-series="' + s.key + '"] .ch-body');
         if (host) drawChart(host, bucket(rows, s.key, s.agg, 180), s);
     });
+    // 區塊可能是剛建的，分隔預設隱藏，這裡補上目前狀態
+    if (typeof updateSpanUI === 'function') updateSpanUI();
 }
 
-function setRange(ms, btn) {
-    HIST_RANGE = ms;
-    Array.prototype.forEach.call(document.querySelectorAll('#range-bar button'), function (b) {
-        b.classList.toggle('active', b === btn);
+/* 下拉選單跟著目前狀態走。選了起訖日期時停在「指定區間」，
+   不要停在一個其實沒在生效的相對區間上。 */
+function syncRangeSelect() {
+    var sel = document.getElementById('range-select');
+    if (sel) sel.value = spanActive() ? '-1' : String(HIST_RANGE);
+}
+
+/* 區間變大時一定要重抓。HIST 只快取了當時 histLimit() 的筆數，
+   單純重畫等於拿兩天的資料去畫 30 天的圖——不會報錯，只會畫短。 */
+function applyWindow() {
+    var need = histLimit();
+    var ids = Object.keys(HIST).filter(function (id) {
+        return !(typeof isDemo === 'function' && isDemo(id));
     });
-    Object.keys(HIST).forEach(renderCharts);
+    if (need <= HIST_LIMIT_USED || !ids.length || !dbBase) {
+        Object.keys(HIST).forEach(renderCharts);
+        return;
+    }
+    dashLog('🔄 區間放大，重新讀取歷史（每台最多 ' + need + ' 筆）');
+    Promise.all(ids.map(loadHistory)).then(function () {
+        Object.keys(HIST).forEach(renderCharts);
+    });
+}
+
+function setRange(ms) {
+    HIST_RANGE = ms;
+    // 選了相對區間就一併取消指定區間。少了這段，畫面會顯示某個區間
+    // 卻仍畫著另一個，而且兩端都不會報錯（先前就是這個狀況）。
+    HIST_FROM = HIST_TO = null;
+    var fEl = document.getElementById('hist-from');
+    var tEl = document.getElementById('hist-to');
+    if (fEl) fEl.value = '';
+    if (tEl) tEl.value = '';
+    updateSpanUI();
+    applyWindow();
+}
+
+/* 'YYYY-MM-DD' → 當地時間 00:00 的 ms。
+   刻意用 new Date(y, m-1, d)：new Date('2026-08-19') 會被當成 UTC，
+   在台灣會整個往前跑 8 小時，選 19 號卻拿到 18 號晚上的資料。 */
+function dayStartMs(value) {
+    if (!value) return null;
+    var p = value.split('-');
+    if (p.length !== 3) return null;
+    var ms = new Date(+p[0], +p[1] - 1, +p[2]).getTime();
+    return isFinite(ms) ? ms : null;
+}
+
+function setSpan() {
+    var fEl = document.getElementById('hist-from');
+    var tEl = document.getElementById('hist-to');
+    HIST_FROM = dayStartMs(fEl && fEl.value);
+    HIST_TO = dayStartMs(tEl && tEl.value);
+    // 顛倒就換過來，不要丟出空圖讓人以為沒資料
+    if (HIST_FROM !== null && HIST_TO !== null && HIST_FROM > HIST_TO) {
+        var tmp = HIST_FROM; HIST_FROM = HIST_TO; HIST_TO = tmp;
+        if (fEl && tEl) { var v = fEl.value; fEl.value = tEl.value; tEl.value = v; }
+        dashLog('↔️ 起訖顛倒，已自動對調');
+    }
+    if (!spanActive()) { clearSpan(); return; }
+    dashLog('📅 指定區間 ' + (fEl.value || '最早') + ' ~ ' + (tEl.value || '最新'));
+    updateSpanUI();
+    applyWindow();
+}
+
+function clearSpan() {
+    setRange(24 * 3600e3);   // 起訖、輸入欄、下拉、畫面都由它一併處理
+}
+
+/* 指定區間時才把數字儀表與圖表分開：數字永遠是目前最新值，
+   跟選定的那段期間無關，擺在一起會被誤讀成同一段時間的數據。 */
+function updateSpanUI() {
+    var on = spanActive();
+    var label = '';
+    if (on) {
+        label = (HIST_FROM !== null ? fmtDay(HIST_FROM) : '最早') + ' ~ ' +
+                (HIST_TO !== null ? fmtDay(HIST_TO) : '最新');
+    }
+    Array.prototype.forEach.call(document.querySelectorAll('[data-split]'), function (el) {
+        el.style.display = on ? '' : 'none';
+    });
+    Array.prototype.forEach.call(document.querySelectorAll('[data-split-range]'), function (el) {
+        el.textContent = label;
+    });
+    // 指定區間時只留圖表。數字卡片是即時值，跟選定的那段期間無關，
+    // 留著只會被誤讀成同一段時間的數據。
+    // 選 .container 但排除圖表那個容器（它也帶 container）。
+    Array.prototype.forEach.call(
+        document.querySelectorAll('#device-list > div > .container:not([data-charts])'),
+        function (el) { el.style.display = on ? 'none' : ''; });
+    var clr = document.getElementById('hist-span-clear');
+    if (clr) clr.style.display = on ? '' : 'none';
+    // 未選只顯示圖示，選完顯示日期——不佔版面又看得到選了哪天
+    var fb = document.getElementById('hist-from-btn');
+    var tb = document.getElementById('hist-to-btn');
+    if (fb) fb.textContent = HIST_FROM !== null ? '📅 ' + fmtDay(HIST_FROM) : '📅';
+    if (tb) tb.textContent = HIST_TO !== null ? '📅 ' + fmtDay(HIST_TO) : '📅';
+    syncRangeSelect();
+}
+
+/* ══ CSV 匯出 ════════════════════════════════════════════════════════
+   Blob + a[download]，不經過任何外部服務，資料不會離開這台電腦。
+   開頭補 UTF-8 BOM，否則 Excel 開起來中文欄位是亂碼。 */
+function csvCell(v) {
+    if (v === null || v === undefined) return '';
+    var s = String(v);
+    return /[",\n]/.test(s) ? '"' + s.replace(/"/g, '""') + '"' : s;
+}
+
+function exportCsv(scope) {
+    // 「全部」要先把完整歷史抓回來，否則匯出的只有目前快取的那幾百筆
+    if (scope === 'all' && HIST_LIMIT_USED < 20000 && dbBase) {
+        var real = Object.keys(HIST).filter(function (id) {
+            return !(typeof isDemo === 'function' && isDemo(id));
+        });
+        if (real.length) {
+            dashLog('⬇️ 下載全部：先把完整歷史讀回來…');
+            Promise.all(real.map(function (id) { return loadHistory(id, 20000); }))
+                .then(function () {
+                    Object.keys(HIST).forEach(renderCharts);
+                    writeCsv(scope);
+                });
+            return;
+        }
+    }
+    writeCsv(scope);
+}
+
+function writeCsv(scope) {
+    var ids = Object.keys(HIST);
+    if (typeof CUR_DEV !== 'undefined' && CUR_DEV && CUR_DEV !== 'ALL') {
+        ids = ids.filter(function (i) { return i === CUR_DEV; });
+    }
+    var win = scope === 'all' ? { from: 0, to: Infinity } : histWindow();
+    // 欄位一律英文：這份檔案會交給國外學校，也常被丟進不吃中文欄名的
+    // 分析工具。裝置名稱用 deviceLabel()，本來就是英數。
+    var lines = [['device', 'timestamp', 'insect_count',
+                  'air_temp_c', 'air_humidity_pct',
+                  'soil_temp_c', 'soil_humidity_pct'].join(',')];
+    var n = 0;
+    ids.forEach(function (id) {
+        // normalizeSoilData() 在沒有土壤欄位時會退回用 temp/humi，所以捕蟲罐
+        // 也會有 soilTemp/soilHumi。照抄會讓土壤欄位重複環境溫濕度的數字，
+        // 看起來像真的量到土壤——只有土壤裝置才填這兩欄。
+        var isSoil = !!(deviceCards[id] && deviceCards[id].isSoil);
+        (HIST[id] || []).forEach(function (p) {
+            if (p.t < win.from || p.t >= win.to) return;
+            n++;
+            lines.push([
+                csvCell(typeof deviceLabel === 'function' ? deviceLabel(id) : id),
+                csvCell(new Date(p.t).toLocaleString('sv-SE')),
+                csvCell(isSoil || p.ir == null ? '' : cleanAdjust(id, p.t, p.ir)),
+                csvCell(isSoil ? (p.airTemp == null ? '' : p.airTemp)
+                               : (p.temp == null ? '' : p.temp)),
+                csvCell(isSoil ? (p.airHumi == null ? '' : p.airHumi)
+                               : (p.humi == null ? '' : p.humi)),
+                csvCell(isSoil && p.soilTemp != null ? p.soilTemp : ''),
+                csvCell(isSoil && p.soilHumi != null ? p.soilHumi : '')
+            ].join(','));
+        });
+    });
+    if (!n) { alert('這個範圍沒有資料可以匯出。'); return; }
+    var tag = scope === 'all' ? 'all'
+        : (new Date(win.from || (HIST[ids[0]] || [{ t: Date.now() }])[0].t)
+              .toLocaleDateString('sv-SE') + '_' +
+           new Date(Math.min(win.to - 1, Date.now())).toLocaleDateString('sv-SE'));
+    var name = 'pest-data_' + tag + '.csv';
+    var blob = new Blob(['\uFEFF' + lines.join('\r\n')],
+                        { type: 'text/csv;charset=utf-8;' });
+    var url = URL.createObjectURL(blob);
+    var a = document.createElement('a');
+    a.href = url; a.download = name;
+    document.body.appendChild(a); a.click(); document.body.removeChild(a);
+    setTimeout(function () { URL.revokeObjectURL(url); }, 1000);
+    dashLog('⬇️ 已匯出 ' + n + ' 筆到 ' + name);
 }
 
 function chartRowHTML(id, explicitSoil) {
@@ -1974,7 +2275,20 @@ function chartRowHTML(id, explicitSoil) {
                  '<div class="ch-body" style="position:relative;margin-top:.6rem;"></div>' +
                '</div>';
     }).join('');
-    return '<div data-charts="' + id + '" class="container" ' +
+    // 分隔只有在指定區間模式下才顯示，由 updateSpanUI() 切換
+    var split =
+        '<div data-split style="display:none;width:90%;max-width:1000px;' +
+              'margin:1.5rem auto .2rem;">' +
+          '<div style="height:1px;background:rgba(255,255,255,.14);' +
+                'margin-bottom:.7rem;"></div>' +
+          '<div style="font-size:.9rem;color:var(--text-muted);display:flex;' +
+                'align-items:center;gap:.5rem;flex-wrap:wrap;">' +
+            '<span style="font-weight:700;color:#f8fafc;">📊 歷史圖表</span>' +
+            '<span data-split-range data-noi18n ' +
+                  'style="color:#f8fafc;font-weight:600;"></span>' +
+          '</div>' +
+        '</div>';
+    return split + '<div data-charts="' + id + '" class="container" ' +
            'style="width:100%;margin-top:.9rem;padding-bottom:0;">' + cards + '</div>';
 }
 
@@ -2856,7 +3170,23 @@ function markDemo() {
             // ── 歷史圖表 ──
             "歷史區間": "History range",
             "24 小時": "24 hours",
+            "3 天": "3 days",
             "7 天": "7 days",
+            "指定區間": "Date range",
+            "🧹 清理捕蟲罐": "🧹 Empty the trap",
+            "⬇ CSV 目前區間": "⬇ CSV (current range)",
+            "⬇ CSV 全部": "⬇ CSV (all)",
+            "清空捕蟲罐後按這裡，數量從 0 重新計算（舊資料保留）":
+                "Press after emptying the trap; the count restarts from 0 and past data is kept",
+            "把目前顯示的區間匯出成 CSV": "Export the current range as CSV",
+            "把全部歷史匯出成 CSV": "Export all history as CSV",
+            "✕ 取消區間": "✕ Clear range",
+            "📊 歷史圖表": "📊 History charts",
+            "起訖顛倒，已自動對調": "Start and end were reversed; swapped automatically",
+            "最早": "earliest",
+            "最新": "latest",
+            "區間放大，重新讀取歷史（每台最多": "Range widened; reloading history (up to",
+            "筆）": " records per device)",
             "30 天": "30 days",
             "全部": "All",
             "此區間無資料": "No data in this range",
