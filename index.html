@@ -1000,6 +1000,20 @@
             max-width: 98% !important;
         }
     </style>
+    <style>
+        /* EN 原本 position:fixed，捲動時一直壓在內容左上角（例如地區頁的返回鈕）；
+           改成跟著頁面捲走。按鈕上是 inline 樣式，要 !important 才蓋得過。 */
+        #lang-toggle { position: absolute !important; }
+        /* 齒輪套著 .dash-btn，帶了 margin-top 和大內距，實際位置比 EN 低 20px，
+           窄螢幕時會壓到標題最後一個字。歸零後跟 EN 對齊在同一列。 */
+        #gear-btn { margin-top: 0; padding: .25rem .5rem; line-height: 1; }
+        /* 窄螢幕：EN 與齒輪獨佔標題上方一列，標題縮成一行，不再跑到按鈕底下。
+           10 個字 × 1.75rem ≈ 280px，320px 寬的手機也放得下。 */
+        @media (max-width: 700px) {
+            header.dash-header { padding-top: 4.25rem; }
+            header.dash-header h1 { font-size: 1.75rem; }
+        }
+    </style>
 </head>
 <body>
 
@@ -1026,6 +1040,60 @@
         </div>
         <button class="dash-btn" onclick="connectFirebase()">重新連線</button>
     </div>
+
+    <!-- ══ 地區介面 ══════════════════════════════════════════════
+         由 JS 依網址 hash 畫出：選擇地區 / 地區卡片 / 單台標頭 / 管理頁。
+         data-noi18n：這塊的中英文由 rgT() 自己處理，不交給翻譯器做片語
+         替換（「台灣」「台」這類短字會誤傷其他句子）。 -->
+    <style>
+        /* 卡片取代原本的裝置分頁列；分頁的程式仍在跑（負責切換顯示哪一台），只是不顯示 */
+        #device-tabs { display: none !important; }
+        #region-ui { width: 90%; max-width: 1000px; margin-bottom: 1rem; color: var(--text-main); }
+        #region-ui a { color: inherit; }
+        .rg-title { font-size: 1.25rem; font-weight: 700; margin: .25rem 0 1rem; }
+        .rg-regions { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 1rem; }
+        .rg-region {
+            display: block; text-decoration: none; background: var(--card-bg);
+            border: 1px solid rgba(255,255,255,.1); border-left: 4px solid var(--rg);
+            border-radius: 1rem; padding: 1.4rem 1.5rem; transition: transform .2s, border-color .2s;
+        }
+        .rg-region:hover, .rg-region:focus-visible { transform: translateY(-2px); border-color: var(--rg); outline: none; }
+        .rg-region-name { font-size: 1.4rem; font-weight: 800; }
+        .rg-region-meta { margin-top: .45rem; color: var(--text-muted); font-size: .9rem; }
+        .rg-on { color: #4ade80; }
+        .rg-actions { display: flex; gap: .5rem; flex-wrap: wrap; margin-top: 1rem; }
+        #region-ui a.range-btn { text-decoration: none; display: inline-block; }
+        .rg-bar { display: flex; align-items: center; gap: .75rem; flex-wrap: wrap; margin-bottom: 1rem; }
+        .rg-bar-title { font-size: 1.2rem; font-weight: 700; flex: 1; min-width: 8rem; }
+        .rg-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 1rem; }
+        .rg-card {
+            display: block; text-decoration: none; background: var(--card-bg);
+            border: 1px solid rgba(255,255,255,.1); border-radius: 1rem; padding: 1rem 1.1rem;
+            transition: transform .2s, border-color .2s;
+        }
+        .rg-card:hover, .rg-card:focus-visible { transform: translateY(-2px); border-color: rgba(255,255,255,.35); outline: none; }
+        .rg-card-head { display: flex; justify-content: space-between; align-items: center; gap: .5rem; margin-bottom: .6rem; }
+        .rg-card-name { font-weight: 700; font-size: 1.05rem; color: #a78bfa; }
+        .rg-dot { font-size: .72rem; padding: .1rem .55rem; border-radius: 999px; white-space: nowrap; font-weight: 600; }
+        .rg-dot.on { background: rgba(74,222,128,.15); color: #4ade80; }
+        .rg-dot.off { background: rgba(148,163,184,.15); color: #94a3b8; }
+        .rg-m { display: flex; justify-content: space-between; align-items: baseline; padding: .18rem 0; }
+        .rg-m-k { color: var(--text-muted); font-size: .85rem; }
+        .rg-m-v { font-weight: 700; font-size: 1.15rem; }
+        .rg-m-v small { font-weight: 500; font-size: .75rem; color: var(--text-muted); margin-left: .2rem; }
+        .rg-card-foot { margin-top: .55rem; font-size: .78rem; color: var(--text-muted); }
+        .rg-empty { color: var(--text-muted); text-align: center; padding: 2rem 1rem; }
+        .rg-note { color: var(--text-muted); font-size: .85rem; margin-bottom: .75rem; line-height: 1.5; }
+        .rg-list { display: flex; flex-direction: column; gap: .5rem; }
+        .rg-row {
+            display: flex; align-items: center; gap: .75rem; flex-wrap: wrap; background: var(--card-bg);
+            border: 1px solid rgba(255,255,255,.1); border-radius: .75rem; padding: .7rem 1rem;
+        }
+        .rg-row-name { font-weight: 700; flex: 1 1 9rem; display: flex; align-items: center; gap: .5rem; }
+        .rg-row-seen { color: var(--text-muted); font-size: .8rem; }
+        .rg-seg { display: flex; gap: .35rem; flex-wrap: wrap; }
+    </style>
+    <div id="region-ui" data-noi18n></div>
 
     <div id="device-tabs" style="width:90%;max-width:1000px;display:flex;gap:.5rem;
          align-items:center;margin-bottom:.75rem;flex-wrap:wrap;">
@@ -1598,9 +1666,11 @@
                     statusEl.innerText = '🟢 已連線 Firebase';
                     if (!ids.length) { dashLog('⚠️ 尚無設備資料'); return; }
                     dashLog(`✅ 發現 ${ids.length} 台設備: ${ids.join(', ')}`);
-                    ids.forEach(subscribeDevice);
-                    // 示範資料要等真實歷史抓完才有基準可用
-                    Promise.all(ids.map(loadHistory)).then(function () {
+                    // 先讀完歷史、再開即時串流。每台一條常駐串流，瀏覽器對同一主機
+                    // 最多 6 條連線；串流先占滿名額的話，歷史請求會永遠排隊。
+                    Promise.all(ids.map(function (id) { return loadHistory(id); })).then(function () {
+                        ids.forEach(subscribeDevice);
+                        // 示範資料要等真實歷史抓完才有基準可用
                         if (DEMO_ON) buildDemo();
                         markDemo();
                     });
@@ -1851,28 +1921,55 @@ function cleanAdjust(id, t, value) {
     return Math.max(0, value - base);
 }
 
+/* confirm() / alert() 是瀏覽器原生視窗，不是 DOM 文字節點，
+   i18n 的 MutationObserver 翻譯器碰不到，只能在這裡自己分語言。
+   i18n 整塊包在 IIFE 裡、它的 lang 變數外面讀不到，但切換時會寫進
+   localStorage 的 ui-lang，讀同一個鍵就會跟畫面同步。 */
+function uiLang() {
+    try { return localStorage.getItem('ui-lang') === 'en' ? 'en' : 'zh'; }
+    catch (e) { return 'zh'; }
+}
+
 function cleanTrap(id) {
     var arr = HIST[id] || [];
     var last = null;
     for (var i = arr.length - 1; i >= 0; i--) {
         if (arr[i].ir != null) { last = arr[i]; break; }
     }
-    if (!last) { alert('目前沒有可用的捕蟲數量，無法設定歸零基準。'); return; }
+    var en = uiLang() === 'en';
+    if (!last) {
+        alert(en ? 'No insect count is available yet, so there is nothing to reset from.'
+                 : '目前沒有可用的捕蟲數量，無法設定歸零基準。');
+        return;
+    }
     var name = (typeof deviceLabel === 'function') ? deviceLabel(id) : id;
-    var when = new Date(last.t).toLocaleString('zh-TW', { hour12: false });
-    if (!confirm(
-            '確定要把「' + name + '」的捕蟲數量歸零嗎？\n\n' +
-            '目前數量：' + cleanAdjust(id, last.t, last.ir) + ' 隻\n' +
-            '歸零時間：' + when + '\n\n' +
-            '舊的數據一樣會在，請放心：\n' +
-            '• 資料庫裡的原始紀錄一筆都不會被刪除或修改\n' +
-            '• 這個時間點之前的歷史圖表維持原樣\n' +
-            '• 只有這個時間點之後的數量改為從 0 開始累計')) return;
+    // 英文介面下用 YYYY-MM-DD HH:MM:SS，跟匯出的 CSV 一致且不會有日月順序的歧義
+    var when = new Date(last.t).toLocaleString(en ? 'sv-SE' : 'zh-TW', { hour12: false });
+    var now = cleanAdjust(id, last.t, last.ir);
+    var msg = en
+        ? 'Reset the insect count for "' + name + '" to zero?\n\n' +
+          'Current count: ' + now + '\n' +
+          'Reset at: ' + when + '\n\n' +
+          'Your old data stays — nothing is lost:\n' +
+          '• No record in the database is deleted or modified\n' +
+          '• History charts before this moment are unchanged\n' +
+          '• Only counts after this moment restart from 0'
+        : '確定要把「' + name + '」的捕蟲數量歸零嗎？\n\n' +
+          '目前數量：' + now + ' 隻\n' +
+          '歸零時間：' + when + '\n\n' +
+          '舊的數據一樣會在，請放心：\n' +
+          '• 資料庫裡的原始紀錄一筆都不會被刪除或修改\n' +
+          '• 這個時間點之前的歷史圖表維持原樣\n' +
+          '• 只有這個時間點之後的數量改為從 0 開始累計';
+    if (!confirm(msg)) return;
     (CLEAN[id] = CLEAN[id] || []).push({ ts: last.t, base: last.ir });
     CLEAN[id].sort(function (a, b) { return a.ts - b.ts; });
     saveClean();
-    dashLog('🧹 [' + id + '] 已於 ' + when + ' 歸零，舊資料保留');
+    // 整句進字典，不要拆成「已於」這種短片語——短片語會誤傷其他句子
+    dashLog('🧹 [' + id + '] 計數已歸零，舊資料保留 (' + when + ')');
     var c = deviceCards[id];
+    // 一定要在寫入基準之後重算：上面的 now 是歸零前的數字，
+    // 直接拿來填卡片的話畫面會停在舊值（先前就是這樣壞掉的）。
     if (c && c.ir) c.ir.innerText = cleanAdjust(id, last.t, last.ir);
     renderCharts(id);
 }
@@ -2095,6 +2192,30 @@ function syncRangeSelect() {
     if (sel) sel.value = spanActive() ? '-1' : String(HIST_RANGE);
 }
 
+/* 大量讀歷史前先關掉所有即時串流，讀完再接回。
+   瀏覽器對同一主機最多 6 條連線，每台裝置的串流各占一條；裝置到 6 台時
+   名額全滿，新的請求會永遠排隊、不報錯。
+   用計數器處理重疊呼叫（例如連續切兩次區間）：最後一個完成時才接回，
+   免得第一個先接回、把第二個還在跑的請求又卡住。 */
+var _pauseDepth = 0, _pausedIds = [];
+function withStreamsPaused(task) {
+    if (_pauseDepth++ === 0) {
+        _pausedIds = Object.keys(deviceStreams);
+        _pausedIds.forEach(function (id) { deviceStreams[id].close(); delete deviceStreams[id]; });
+        if (_pausedIds.length) dashLog('⏸ 暫停即時串流，讀取歷史中…');
+    }
+    var resume = function () {
+        if (--_pauseDepth !== 0) return;
+        var ids = _pausedIds;
+        _pausedIds = [];
+        ids.forEach(subscribeDevice);   // 接回時串流會先送來最新一筆
+        if (ids.length) dashLog('▶ 即時串流已恢復');
+    };
+    return Promise.resolve().then(task).then(
+        function (v) { resume(); return v; },
+        function (e) { resume(); throw e; });
+}
+
 /* 區間變大時一定要重抓。HIST 只快取了當時 histLimit() 的筆數，
    單純重畫等於拿兩天的資料去畫 30 天的圖——不會報錯，只會畫短。 */
 function applyWindow() {
@@ -2103,12 +2224,14 @@ function applyWindow() {
         return !(typeof isDemo === 'function' && isDemo(id));
     });
     if (need <= HIST_LIMIT_USED || !ids.length || !dbBase) {
-        Object.keys(HIST).forEach(renderCharts);
+        Object.keys(HIST).forEach(function (id) { renderCharts(id); });
         return;
     }
     dashLog('🔄 區間放大，重新讀取歷史（每台最多 ' + need + ' 筆）');
-    Promise.all(ids.map(loadHistory)).then(function () {
-        Object.keys(HIST).forEach(renderCharts);
+    withStreamsPaused(function () {
+        return Promise.all(ids.map(function (id) { return loadHistory(id); }));
+    }).then(function () {
+        Object.keys(HIST).forEach(function (id) { renderCharts(id); });
     });
 }
 
@@ -2205,9 +2328,10 @@ function exportCsv(scope) {
         });
         if (real.length) {
             dashLog('⬇️ 下載全部：先把完整歷史讀回來…');
-            Promise.all(real.map(function (id) { return loadHistory(id, 20000); }))
-                .then(function () {
-                    Object.keys(HIST).forEach(renderCharts);
+            withStreamsPaused(function () {
+                return Promise.all(real.map(function (id) { return loadHistory(id, 20000); }));
+            }).then(function () {
+                    Object.keys(HIST).forEach(function (id) { renderCharts(id); });
                     writeCsv(scope);
                 });
             return;
@@ -2249,7 +2373,11 @@ function writeCsv(scope) {
             ].join(','));
         });
     });
-    if (!n) { alert('這個範圍沒有資料可以匯出。'); return; }
+    if (!n) {
+        alert(uiLang() === 'en' ? 'No data in this range to export.'
+                                : '這個範圍沒有資料可以匯出。');
+        return;
+    }
     var tag = scope === 'all' ? 'all'
         : (new Date(win.from || (HIST[ids[0]] || [{ t: Date.now() }])[0].t)
               .toLocaleDateString('sv-SE') + '_' +
@@ -2441,10 +2569,16 @@ function demoPoint(id, ms, base) {
 }
 
 function buildDemo() {
-    var src = null;
+    var src = null, srcScore = -1;
     Object.keys(HIST).forEach(function (k) {
-        if (!isDemo(k) && HIST[k] && HIST[k].length > 20 &&
-            (!src || HIST[k].length > src.length)) src = HIST[k];
+        var a = HIST[k];
+        if (isDemo(k) || !a || a.length <= 20) return;
+        // 分數 = 該裝置自己最後 24 小時內的筆數。
+        // 時間軸平移後最後一筆會落在現在，所以尾端密度決定了示範裝置在
+        // 預設 24 小時區間看不看得到線；總筆數多但尾端稀疏是沒用的。
+        var cut = a[a.length - 1].t - 86400e3, n = 0;
+        for (var i = a.length - 1; i >= 0 && a[i].t >= cut; i--) n++;
+        if (n > srcScore) { srcScore = n; src = a; }
     });
     if (!src) {
         // 只寫主控台，不佔資訊欄
@@ -2534,6 +2668,284 @@ function markDemo() {
 
         // 預設啟動連線
         window.onload = connectFirebase;
+    </script>
+    <script>
+/* ══ 地區介面（只改介面）════════════════════════════════════════════
+   首頁先選地區 → 該地區每台裝置一張卡片 → 點卡片看單台詳細（原本的
+   數字、折線圖、歷史區間、CSV、清理按鈕全部沿用）。另有「管理裝置」
+   頁，可把裝置移到另一個地區。
+
+   連線規則一行都沒動。這裡只在 ensureDeviceBlock、updateDeviceCards
+   外面包一層，資料進來時順便刷新卡片。
+
+   分區存在瀏覽器 localStorage（device-region），不寫 Firebase。
+   REGION_DEFAULT 是沒設定過時的預設值，所有人開都一樣；在管理頁移動
+   只影響這台瀏覽器。要讓每個人都看到同樣的分區，請改 REGION_DEFAULT。 */
+var REGIONS = [
+    { key: 'tw', zh: '台灣', en: 'Taiwan', color: '#60a5fa' },
+    { key: 'th', zh: '泰國清邁', en: 'Chiang Mai, Thailand', color: '#f59e0b' }
+];
+var REGION_DEFAULT = { 'IR-5': 'th' };      // 沒列到的一律算台灣
+var REGION_KEY = 'device-region';
+var REGION_ONLINE_MS = 30 * 60e3;           // 閘道每 10 分鐘上傳，連漏 3 次才算離線
+var REGION_MAP = (function () {
+    try { return JSON.parse(localStorage.getItem(REGION_KEY)) || {}; }
+    catch (e) { return {}; }
+})();
+var LAST_TS = {};                           // 串流進來的最新時間戳，補 HIST 尚未載入時的空窗
+
+function rgT(zh, en) {
+    return (typeof uiLang === 'function' && uiLang() === 'en') ? en : zh;
+}
+function rgEsc(s) {
+    return String(s).replace(/[&<>"']/g, function (c) {
+        return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c];
+    });
+}
+function rgRegion(key) {
+    for (var i = 0; i < REGIONS.length; i++) if (REGIONS[i].key === key) return REGIONS[i];
+    return REGIONS[0];
+}
+function rgRegionName(key) { var r = rgRegion(key); return rgT(r.zh, r.en); }
+function regionOf(id) { return REGION_MAP[id] || REGION_DEFAULT[id] || REGIONS[0].key; }
+function rgName(id) { return typeof deviceLabel === 'function' ? deviceLabel(id) : id; }
+
+// IR-2 排在 IR-10 前面
+function rgIds() {
+    return Object.keys(deviceCards).sort(function (a, b) {
+        return a.localeCompare(b, undefined, { numeric: true, sensitivity: 'base' });
+    });
+}
+
+function rgLastSeen(id) {
+    var t = LAST_TS[id] || 0, a = (typeof HIST !== 'undefined') ? HIST[id] : null;
+    if (a && a.length) t = Math.max(t, a[a.length - 1].t);
+    return t;
+}
+function rgOnline(id) {
+    var t = rgLastSeen(id);
+    return t > 0 && Date.now() - t < REGION_ONLINE_MS;
+}
+function rgAgo(t) {
+    if (!t) return rgT('尚無資料', 'No data yet');
+    var m = Math.round((Date.now() - t) / 60e3);
+    if (m < 1) return rgT('剛剛更新', 'Just now');
+    if (m < 60) return rgT(m + ' 分鐘前', m + ' min ago');
+    var h = Math.round(m / 60);
+    if (h < 48) return rgT(h + ' 小時前', h + ' h ago');
+    var d = Math.round(h / 24);
+    return rgT(d + ' 天前', d + (d === 1 ? ' day ago' : ' days ago'));
+}
+function rgDot(id) {
+    var on = rgOnline(id);
+    return '<span class="rg-dot ' + (on ? 'on' : 'off') + '">' +
+           (on ? rgT('在線', 'Online') : rgT('離線', 'Offline')) + '</span>';
+}
+
+/* 卡片上的數字直接讀詳細頁那組數字卡片——那裡已經是乘 2、扣掉歸零基準
+   之後的值，這裡不再自己算一次，兩邊才不會對不上。 */
+function rgSummary(id) {
+    var c = deviceCards[id] || {};
+    var v = function (el) { var s = el ? el.textContent.trim() : ''; return s || '--'; };
+    if (c.isSoil) return [
+        ['🌡️', rgT('土壤溫度', 'Soil temp'), v(c.soilTemp), '°C'],
+        ['💧', rgT('土壤濕度', 'Soil moisture'), v(c.soilHumi), '%'],
+        ['🌡️', rgT('環境溫度', 'Air temp'), v(c.airTemp), '°C']
+    ];
+    return [
+        ['🪲', rgT('捕蟲數量', 'Insects'), v(c.ir), rgT('隻', '')],
+        ['🌡️', rgT('溫度', 'Temp'), v(c.temp), '°C'],
+        ['💧', rgT('濕度', 'Humidity'), v(c.humi), '%']
+    ];
+}
+
+function rgBar(href, back, title, right) {
+    return '<div class="rg-bar">' +
+             '<a class="range-btn" href="' + href + '">' + rgEsc(back) + '</a>' +
+             '<div class="rg-bar-title">' + rgEsc(title) + '</div>' +
+             (right || '') +
+           '</div>';
+}
+function rgManageLink() {
+    return '<a class="range-btn" href="#/manage">⚙ ' + rgEsc(rgT('管理裝置', 'Manage devices')) + '</a>';
+}
+function rgWaiting() {
+    return '<div class="rg-empty">' + rgEsc(rgT('尚無設備資料，等待上傳中…', 'Waiting for device data…')) + '</div>';
+}
+
+function rgHomeHTML() {
+    var ids = rgIds();
+    var cards = REGIONS.map(function (r) {
+        var mine = ids.filter(function (id) { return regionOf(id) === r.key; });
+        var on = mine.filter(rgOnline).length;
+        return '<a class="rg-region" href="#/' + r.key + '" style="--rg:' + r.color + '">' +
+                 '<div class="rg-region-name">' + rgEsc(rgT(r.zh, r.en)) + '</div>' +
+                 '<div class="rg-region-meta">' +
+                   rgEsc(rgT(mine.length + ' 台設備', mine.length + ' device' + (mine.length === 1 ? '' : 's'))) +
+                   ' · <span class="rg-on">' + rgEsc(rgT(on + ' 台在線', on + ' online')) + '</span>' +
+                 '</div>' +
+               '</a>';
+    }).join('');
+    return '<div class="rg-title">' + rgEsc(rgT('選擇地區', 'Choose a region')) + '</div>' +
+           '<div class="rg-regions">' + cards + '</div>' +
+           '<div class="rg-actions">' + rgManageLink() + '</div>';
+}
+
+function rgCardHTML(id) {
+    var rows = rgSummary(id).map(function (m) {
+        return '<div class="rg-m"><span class="rg-m-k">' + m[0] + ' ' + rgEsc(m[1]) + '</span>' +
+               '<span class="rg-m-v">' + rgEsc(m[2]) + '<small>' + rgEsc(m[3]) + '</small></span></div>';
+    }).join('');
+    return '<a class="rg-card" href="#/dev/' + encodeURIComponent(id) + '">' +
+             '<div class="rg-card-head"><span class="rg-card-name">' + rgEsc(rgName(id)) + '</span>' +
+               rgDot(id) + '</div>' +
+             rows +
+             '<div class="rg-card-foot">🕐 ' + rgEsc(rgAgo(rgLastSeen(id))) + '</div>' +
+           '</a>';
+}
+
+function rgRegionHTML(key) {
+    var head = rgBar('#/', '← ' + rgT('選擇地區', 'Regions'), rgRegionName(key), rgManageLink());
+    var all = rgIds();
+    if (!all.length) return head + rgWaiting();
+    var ids = all.filter(function (id) { return regionOf(id) === key; });
+    if (!ids.length) {
+        return head + '<div class="rg-empty">' + rgEsc(rgT(
+            '這個地區還沒有裝置，可到「管理裝置」把裝置移過來。',
+            'No devices here yet. Use “Manage devices” to move some in.')) + '</div>';
+    }
+    return head + '<div class="rg-grid">' + ids.map(rgCardHTML).join('') + '</div>';
+}
+
+function rgDetailHTML(id) {
+    var key = regionOf(id);
+    var head = rgBar('#/' + key, '← ' + rgRegionName(key), rgName(id), rgDot(id));
+    if (!deviceCards[id]) {
+        return head + '<div class="rg-empty">' + rgEsc(rgT('載入中…', 'Loading…')) + '</div>';
+    }
+    return head;
+}
+
+function rgManageHTML() {
+    var head = rgBar('#/', '← ' + rgT('選擇地區', 'Regions'), rgT('管理裝置', 'Manage devices'), '');
+    var note = '<div class="rg-note">' + rgEsc(rgT(
+        '點地區按鈕即可移動，立即生效。分區設定存在這個瀏覽器，換電腦或換瀏覽器會看到預設分區。',
+        'Tap a region to move a device; it applies immediately. Assignments are saved in this browser, so another computer or browser shows the default regions.')) + '</div>';
+    var ids = rgIds();
+    if (!ids.length) return head + note + rgWaiting();
+    var rows = ids.map(function (id) {
+        var cur = regionOf(id);
+        var seg = REGIONS.map(function (r) {
+            var on = r.key === cur;
+            return '<button type="button" class="range-btn' + (on ? ' active' : '') + '"' +
+                   ' data-move="' + r.key + '" data-dev="' + rgEsc(id) + '"' +
+                   ' aria-pressed="' + on + '">' + rgEsc(rgT(r.zh, r.en)) + '</button>';
+        }).join('');
+        return '<div class="rg-row">' +
+                 '<div class="rg-row-name">' + rgEsc(rgName(id)) + rgDot(id) + '</div>' +
+                 '<div class="rg-row-seen">🕐 ' + rgEsc(rgAgo(rgLastSeen(id))) + '</div>' +
+                 '<div class="rg-seg">' + seg + '</div>' +
+               '</div>';
+    }).join('');
+    var foot = '<div class="rg-actions">' +
+        '<button type="button" class="range-btn" data-act="export">⬇ ' +
+            rgEsc(rgT('匯出全部裝置 CSV', 'Export all devices (CSV)')) + '</button>' +
+        '<button type="button" class="range-btn" data-act="reset">' +
+            rgEsc(rgT('全部恢復預設分區', 'Reset to default regions')) + '</button>' +
+        '</div>';
+    return head + note + '<div class="rg-list">' + rows + '</div>' + foot;
+}
+
+function rgRoute() {
+    var h = (location.hash || '').replace(/^#\/?/, '');
+    if (!h) return { view: 'home' };
+    if (h === 'manage') return { view: 'manage' };
+    if (h.indexOf('dev/') === 0) return { view: 'dev', id: decodeURIComponent(h.slice(4)) };
+    for (var i = 0; i < REGIONS.length; i++) {
+        if (REGIONS[i].key === h) return { view: 'region', region: h };
+    }
+    return { view: 'home' };
+}
+
+function renderRegionUI() {
+    var box = document.getElementById('region-ui');
+    if (!box) return;
+    var r = rgRoute();
+    var detail = r.view === 'dev';
+    // range-bar 原本的 inline 樣式是 flex，設回 '' 會變成 block，所以明寫
+    document.getElementById('range-bar').style.display = detail ? 'flex' : 'none';
+    document.getElementById('device-list').style.display =
+        (detail && deviceCards[r.id]) ? '' : 'none';
+    box.innerHTML =
+        r.view === 'region' ? rgRegionHTML(r.region) :
+        r.view === 'manage' ? rgManageHTML() :
+        detail ? rgDetailHTML(r.id) : rgHomeHTML();
+    // 詳細頁只留這一台。其他裝置陸續進來時，原本的 applyDeviceFilter
+    // 可能把 CUR_DEV 退回「全部」，所以每次畫面更新都重新指定一次。
+    if (detail && deviceCards[r.id] && CUR_DEV !== r.id) selectDevice(r.id);
+}
+
+var _rgPending = false;
+function scheduleRegionRender() {
+    if (_rgPending) return;
+    _rgPending = true;
+    setTimeout(function () { _rgPending = false; renderRegionUI(); }, 60);
+}
+
+function moveDevice(id, key) {
+    // 移回預設值就刪掉覆寫，預設改了之後這台會跟著新的預設走
+    if ((REGION_DEFAULT[id] || REGIONS[0].key) === key) delete REGION_MAP[id];
+    else REGION_MAP[id] = key;
+    try { localStorage.setItem(REGION_KEY, JSON.stringify(REGION_MAP)); } catch (e) {}
+    dashLog('📍 [' + id + '] → ' + rgRegionName(key));
+    renderRegionUI();
+}
+
+function rgResetRegions() {
+    if (!confirm(rgT('確定把所有裝置恢復成預設分區嗎？',
+                     'Reset every device to its default region?'))) return;
+    REGION_MAP = {};
+    try { localStorage.removeItem(REGION_KEY); } catch (e) {}
+    renderRegionUI();
+}
+
+/* 原本「全部裝置」分頁可以一次匯出全部；分頁隱藏後改從管理頁進入，
+   功能不因為改介面而消失。 */
+function rgExportAll() {
+    selectDevice('ALL');
+    exportCsv('all');
+}
+
+// 只包外層，原函式照常執行；連線、串流、歷史讀取的流程都不受影響
+(function () {
+    var ensure0 = ensureDeviceBlock, update0 = updateDeviceCards;
+    ensureDeviceBlock = function (id, data) {
+        var r = ensure0(id, data);
+        scheduleRegionRender();
+        return r;
+    };
+    updateDeviceCards = function (id, d) {
+        update0(id, d);
+        if (d && d.ts) LAST_TS[id] = Math.max(LAST_TS[id] || 0, Number(d.ts) || 0);
+        scheduleRegionRender();
+    };
+})();
+
+document.getElementById('region-ui').addEventListener('click', function (e) {
+    var b = e.target.closest('[data-move]');
+    if (b) { moveDevice(b.getAttribute('data-dev'), b.getAttribute('data-move')); return; }
+    var a = e.target.closest('[data-act]');
+    if (!a) return;
+    if (a.getAttribute('data-act') === 'export') rgExportAll();
+    else if (a.getAttribute('data-act') === 'reset') rgResetRegions();
+});
+window.addEventListener('hashchange', function () { window.scrollTo(0, 0); renderRegionUI(); });
+// 語言切換鈕的原處理器在後面的 script 才註冊，等它把 ui-lang 寫完再重畫
+document.getElementById('lang-toggle').addEventListener('click', function () {
+    setTimeout(renderRegionUI, 0);
+});
+setInterval(renderRegionUI, 60e3);   // 「幾分鐘前」與在線狀態跟著時間走
+renderRegionUI();
     </script>
     <script>
         const UART_SERV = '6e400001-b5a3-f393-e0a9-e50e24dcca9e';
@@ -3174,6 +3586,11 @@ function markDemo() {
             "7 天": "7 days",
             "指定區間": "Date range",
             "🧹 清理捕蟲罐": "🧹 Empty the trap",
+            "暫停即時串流，讀取歷史中…": "Live streams paused while loading history…",
+            "即時串流已恢復": "Live streams resumed",
+            "計數已歸零，舊資料保留": "Count reset to zero; past data kept",
+            "已復原上一次歸零": "Last reset undone",
+            "沒有歸零紀錄": "No reset on record",
             "⬇ CSV 目前區間": "⬇ CSV (current range)",
             "⬇ CSV 全部": "⬇ CSV (all)",
             "清空捕蟲罐後按這裡，數量從 0 重新計算（舊資料保留）":
