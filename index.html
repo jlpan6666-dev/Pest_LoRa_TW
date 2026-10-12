@@ -1747,6 +1747,29 @@
             return Number.isFinite(number) ? number : null;
         }
 
+        /* 量測時間優先使用閘道寫入的 time（例如 2026-10-12 16:30:04）。
+           Firebase 的 ts 是伺服器收到 POST 的時間；斷線補傳時會變成補傳當下，
+           不能拿來當歷史圖的量測時間。time 缺漏或格式錯誤時才退回 ts。 */
+        function recordTimeMs(data) {
+            data = data || {};
+            const raw = data.time;
+            if (typeof raw === 'string') {
+                const match = raw.trim().match(
+                    /^(\d{4})[-\/](\d{1,2})[-\/](\d{1,2})[ T](\d{1,2}):(\d{1,2})(?::(\d{1,2}))?$/);
+                if (match) {
+                    const local = new Date(+match[1], +match[2] - 1, +match[3],
+                        +match[4], +match[5], +(match[6] || 0));
+                    const ms = local.getTime();
+                    if (Number.isFinite(ms)) return ms;
+                }
+            }
+            const numericTime = finiteNumberOrNull(raw);
+            if (numericTime !== null) return numericTime < 1e12 ? numericTime * 1000 : numericTime;
+            const serverTime = finiteNumberOrNull(data.ts);
+            if (serverTime === null) return 0;
+            return serverTime < 1e12 ? serverTime * 1000 : serverTime;
+        }
+
         /* 捕蟲數量現場校正倍率。
            裝置已架設在農場、不便重新燒錄韌體，因此在顯示層補正；
            資料庫存的仍是韌體回報的原始值，未被改寫。
@@ -1768,7 +1791,7 @@
             data = data || {};
             const soil = normalizeSoilData(data);
             return {
-                t: finiteNumberOrNull(data.ts) || 0,
+                t: recordTimeMs(data),
                 ir: irCount(data.ir),
                 temp: finiteNumberOrNull(data.temp),
                 humi: finiteNumberOrNull(data.humi),
@@ -1864,12 +1887,14 @@
                 if (soil.soilTemp !== undefined && soil.soilTemp !== null && c.soilTemp) c.soilTemp.innerText = formatMetric(soil.soilTemp);
                 if (soil.soilHumi !== undefined && soil.soilHumi !== null && c.soilHumi) c.soilHumi.innerText = formatMetric(soil.soilHumi);
             } else {
-                const irNow = cleanAdjust(id, Number(d.ts) || Date.now(), irCount(d.ir));
+                const measuredAt = recordTimeMs(d) || Date.now();
+                const irNow = cleanAdjust(id, measuredAt, irCount(d.ir));
                 if (irNow !== null && c.ir) c.ir.innerText = irNow;
                 if (d.temp !== undefined && d.temp !== null && c.temp) c.temp.innerText = formatMetric(d.temp);
                 if (d.humi !== undefined && d.humi !== null && c.humi) c.humi.innerText = formatMetric(d.humi);
             }
-            if (d.ts) c.ts.innerText = new Date(d.ts).toLocaleString('zh-TW', { hour12: false });
+            const measuredAt = recordTimeMs(d);
+            if (measuredAt) c.ts.innerText = new Date(measuredAt).toLocaleString('zh-TW', { hour12: false });
             pushLivePoint(id, d);
         }
 
@@ -2433,11 +2458,19 @@ function chartRowHTML(id, explicitSoil) {
 
 /* 串流進來的即時資料直接追加到歷史，不必重新抓整份 */
 function pushLivePoint(id, d) {
-    if (!HIST[id] || !d || !d.ts) return;
-    var t = Number(d.ts);
+    if (!HIST[id] || !d) return;
+    var point = historyPointFromRecord(d);
+    var t = point.t;
+    if (!t) return;
     var arr = HIST[id];
-    if (arr.length && t <= arr[arr.length - 1].t) return;   // 重複或亂序就略過
-    arr.push(historyPointFromRecord(d));
+    // 補傳資料會晚到，但 time 是舊的量測時間；插回正確位置而非畫到最右側。
+    var lo = 0, hi = arr.length;
+    while (lo < hi) {
+        var mid = (lo + hi) >> 1;
+        if (arr[mid].t < t) lo = mid + 1; else hi = mid;
+    }
+    if (lo < arr.length && arr[lo].t === t) arr[lo] = point;
+    else arr.splice(lo, 0, point);
     renderCharts(id);
 }
 
