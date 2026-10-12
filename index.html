@@ -1092,6 +1092,17 @@
         .rg-row-name { font-weight: 700; flex: 1 1 9rem; display: flex; align-items: center; gap: .5rem; }
         .rg-row-seen { color: var(--text-muted); font-size: .8rem; }
         .rg-seg { display: flex; gap: .35rem; flex-wrap: wrap; }
+        /* 自訂名稱標籤：接在 IR-x 後面，太長就截斷，不撐破卡片 */
+        .rg-label {
+            display: inline-block; margin-left: .45rem; padding: .05rem .5rem; border-radius: .4rem;
+            background: rgba(167,139,250,.16); color: #ddd6fe; font-size: .78rem; font-weight: 600;
+            vertical-align: middle; max-width: 12rem; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+        }
+        /* 頁面有全域的 input{width:100%}，在一列裡要明寫寬度，否則會把整列擠爆 */
+        .rg-row input.rg-label-input {
+            width: auto; flex: 1 1 10rem; min-width: 8rem; max-width: 16rem;
+            padding: .35rem .55rem; font-size: .85rem; margin: 0;
+        }
     </style>
     <div id="region-ui" data-noi18n></div>
 
@@ -2683,7 +2694,7 @@ function markDemo() {
    只影響這台瀏覽器。要讓每個人都看到同樣的分區，請改 REGION_DEFAULT。 */
 var REGIONS = [
     { key: 'tw', zh: '台灣', en: 'Taiwan', color: '#60a5fa' },
-    { key: 'th', zh: '泰國清邁', en: 'Chiang Mai, Thailand', color: '#f59e0b' }
+    { key: 'th', zh: '泰國', en: 'Thailand', color: '#f59e0b' }
 ];
 var REGION_DEFAULT = { 'IR-5': 'th' };      // 沒列到的一律算台灣
 var REGION_KEY = 'device-region';
@@ -2693,6 +2704,33 @@ var REGION_MAP = (function () {
     catch (e) { return {}; }
 })();
 var LAST_TS = {};                           // 串流進來的最新時間戳，補 HIST 尚未載入時的空窗
+
+/* 裝置名稱：IR-x 照常顯示，旁邊多一個可自訂的名稱標籤（在管理頁設定）。
+   跟分區一樣存在瀏覽器 localStorage（device-label），不寫 Firebase；
+   DEVICE_LABEL_DEFAULT 是預設值，所有人開都一樣。
+   刻意不叫 deviceLabel：那個名字 CSV 匯出會拿去當裝置欄，用了就會讓
+   CSV 的裝置欄從 IR-x 變成自訂名稱，換名字後舊檔新檔就對不起來。 */
+var DEVICE_LABEL_DEFAULT = { 'IR-5': 'FARM A JARN' };   // 與泰國站顯示的名稱一致
+var DEVICE_LABEL_KEY = 'device-label';
+var DEVICE_LABEL = (function () {
+    try { return JSON.parse(localStorage.getItem(DEVICE_LABEL_KEY)) || {}; }
+    catch (e) { return {}; }
+})();
+function rgLabel(id) {
+    // 用 hasOwnProperty：使用者刻意清成空字串時，不要又退回預設值
+    return Object.prototype.hasOwnProperty.call(DEVICE_LABEL, id)
+        ? DEVICE_LABEL[id] : (DEVICE_LABEL_DEFAULT[id] || '');
+}
+function rgLabelPill(id) {
+    var s = rgLabel(id);
+    return s ? '<span class="rg-label" title="' + rgEsc(s) + '">' + rgEsc(s) + '</span>' : '';
+}
+function setDeviceLabel(id, text) {
+    text = String(text || '').trim().slice(0, 30);
+    if (text === (DEVICE_LABEL_DEFAULT[id] || '')) delete DEVICE_LABEL[id];
+    else DEVICE_LABEL[id] = text;
+    try { localStorage.setItem(DEVICE_LABEL_KEY, JSON.stringify(DEVICE_LABEL)); } catch (e) {}
+}
 
 function rgT(zh, en) {
     return (typeof uiLang === 'function' && uiLang() === 'en') ? en : zh;
@@ -2717,10 +2755,52 @@ function rgIds() {
     });
 }
 
+/* 閘道的「測試 Firebase」按鈕會在裝置節點寫入 {"from":"IAQ-GW","test":1,"ts":…}，
+   沒有任何量測值。拿它當「最後更新」會把停擺兩個月的裝置顯示成在線，
+   數字卡片也會停在 --。在線判斷與數字一律以「最後一筆真的有量測值」為準。 */
+var RG_READING_KEYS = ['ir', 'temp', 'humi', 'air_temp_c', 'air_humidity_pct',
+                       'soil_temp_c', 'soil_humidity_pct', 'at', 'ah', 't', 'h'];
+function rgIsReading(d) {
+    if (!d || typeof d !== 'object') return false;
+    for (var i = 0; i < RG_READING_KEYS.length; i++) {
+        var v = d[RG_READING_KEYS[i]];
+        if (v !== undefined && v !== null && v !== '') return true;
+    }
+    return false;
+}
+function rgLastReading(id) {
+    var a = (typeof HIST !== 'undefined') ? HIST[id] : null;
+    if (!a) return null;
+    for (var i = a.length - 1; i >= 0; i--) {
+        var p = a[i];
+        if (p.ir != null || p.temp != null || p.humi != null || p.airTemp != null ||
+            p.airHumi != null || p.soilTemp != null || p.soilHumi != null) return p;
+    }
+    return null;
+}
 function rgLastSeen(id) {
-    var t = LAST_TS[id] || 0, a = (typeof HIST !== 'undefined') ? HIST[id] : null;
-    if (a && a.length) t = Math.max(t, a[a.length - 1].t);
-    return t;
+    var p = rgLastReading(id);
+    return Math.max(LAST_TS[id] || 0, p ? p.t : 0);
+}
+
+/* 數字卡片若還是 --（例如最新一筆是測試紀錄），用最後一筆真的量測值補上。
+   地區卡片與詳細頁讀的是同一組 DOM，所以兩邊會一起對。只補 --，
+   已經有值的不動，串流進來的新值仍以原本的 updateDeviceCards 為準。 */
+function rgBackfill(id) {
+    var c = deviceCards[id], p = rgLastReading(id);
+    if (!c || !p) return;
+    var put = function (el, v) {
+        if (el && v !== null && v !== undefined && el.textContent.trim() === '--') el.textContent = v;
+    };
+    var fm = function (v) { return v == null ? null : formatMetric(v); };
+    if (c.isSoil) {
+        put(c.airTemp, fm(p.airTemp)); put(c.airHumi, fm(p.airHumi));
+        put(c.soilTemp, fm(p.soilTemp)); put(c.soilHumi, fm(p.soilHumi));
+    } else {
+        put(c.ir, p.ir == null ? null : cleanAdjust(id, p.t, p.ir));
+        put(c.temp, fm(p.temp)); put(c.humi, fm(p.humi));
+    }
+    put(c.ts, new Date(p.t).toLocaleString('zh-TW', { hour12: false }));
 }
 function rgOnline(id) {
     var t = rgLastSeen(id);
@@ -2759,10 +2839,10 @@ function rgSummary(id) {
     ];
 }
 
-function rgBar(href, back, title, right) {
+function rgBar(href, back, title, right, titleExtra) {
     return '<div class="rg-bar">' +
              '<a class="range-btn" href="' + href + '">' + rgEsc(back) + '</a>' +
-             '<div class="rg-bar-title">' + rgEsc(title) + '</div>' +
+             '<div class="rg-bar-title">' + rgEsc(title) + (titleExtra || '') + '</div>' +
              (right || '') +
            '</div>';
 }
@@ -2797,7 +2877,7 @@ function rgCardHTML(id) {
                '<span class="rg-m-v">' + rgEsc(m[2]) + '<small>' + rgEsc(m[3]) + '</small></span></div>';
     }).join('');
     return '<a class="rg-card" href="#/dev/' + encodeURIComponent(id) + '">' +
-             '<div class="rg-card-head"><span class="rg-card-name">' + rgEsc(rgName(id)) + '</span>' +
+             '<div class="rg-card-head"><span class="rg-card-name">' + rgEsc(rgName(id)) + rgLabelPill(id) + '</span>' +
                rgDot(id) + '</div>' +
              rows +
              '<div class="rg-card-foot">🕐 ' + rgEsc(rgAgo(rgLastSeen(id))) + '</div>' +
@@ -2819,7 +2899,7 @@ function rgRegionHTML(key) {
 
 function rgDetailHTML(id) {
     var key = regionOf(id);
-    var head = rgBar('#/' + key, '← ' + rgRegionName(key), rgName(id), rgDot(id));
+    var head = rgBar('#/' + key, '← ' + rgRegionName(key), rgName(id), rgDot(id), rgLabelPill(id));
     if (!deviceCards[id]) {
         return head + '<div class="rg-empty">' + rgEsc(rgT('載入中…', 'Loading…')) + '</div>';
     }
@@ -2829,8 +2909,8 @@ function rgDetailHTML(id) {
 function rgManageHTML() {
     var head = rgBar('#/', '← ' + rgT('選擇地區', 'Regions'), rgT('管理裝置', 'Manage devices'), '');
     var note = '<div class="rg-note">' + rgEsc(rgT(
-        '點地區按鈕即可移動，立即生效。分區設定存在這個瀏覽器，換電腦或換瀏覽器會看到預設分區。',
-        'Tap a region to move a device; it applies immediately. Assignments are saved in this browser, so another computer or browser shows the default regions.')) + '</div>';
+        '點地區按鈕即可移動；名稱欄輸入後按 Enter 或點別處即儲存，清空就不顯示標籤。分區與名稱存在這個瀏覽器，換電腦或換瀏覽器會看到預設值。',
+        'Tap a region to move a device. Type a name and press Enter (or click elsewhere) to save; clear it to hide the label. Regions and names are saved in this browser, so another computer or browser shows the defaults.')) + '</div>';
     var ids = rgIds();
     if (!ids.length) return head + note + rgWaiting();
     var rows = ids.map(function (id) {
@@ -2843,6 +2923,11 @@ function rgManageHTML() {
         }).join('');
         return '<div class="rg-row">' +
                  '<div class="rg-row-name">' + rgEsc(rgName(id)) + rgDot(id) + '</div>' +
+                 // data-noi18n：翻譯器會改 placeholder，而且只看元素本身、不看祖先
+                 '<input type="text" class="rg-label-input" data-label="' + rgEsc(id) + '" data-noi18n' +
+                   ' maxlength="30" value="' + rgEsc(rgLabel(id)) + '"' +
+                   ' placeholder="' + rgEsc(rgT('自訂名稱（選填）', 'Custom name (optional)')) + '"' +
+                   ' aria-label="' + rgEsc(rgT(id + ' 的名稱', 'Name for ' + id)) + '">' +
                  '<div class="rg-row-seen">🕐 ' + rgEsc(rgAgo(rgLastSeen(id))) + '</div>' +
                  '<div class="rg-seg">' + seg + '</div>' +
                '</div>';
@@ -2870,6 +2955,11 @@ function rgRoute() {
 function renderRegionUI() {
     var box = document.getElementById('region-ui');
     if (!box) return;
+    // 正在輸入名稱時先不重畫：串流一進來或每分鐘的刷新都會整塊重建，
+    // 把打到一半的字清掉。離開輸入框時（focusout）會補畫一次。
+    var ae = document.activeElement;
+    if (ae && ae.matches && ae.matches('#region-ui input[data-label]')) return;
+    rgIds().forEach(rgBackfill);
     var r = rgRoute();
     var detail = r.view === 'dev';
     // range-bar 原本的 inline 樣式是 flex，設回 '' 會變成 block，所以明寫
@@ -2925,12 +3015,30 @@ function rgExportAll() {
         return r;
     };
     updateDeviceCards = function (id, d) {
+        // 測試紀錄（只有 ts、沒有量測值）：不更新數字與「最後更新」，
+        // 只確保裝置區塊存在，免得只被測試過的新裝置在畫面上消失
+        if (d && typeof d === 'object' && !rgIsReading(d)) {
+            ensureDeviceBlock(id, d);
+            dashLog('🧪 [' + id + '] 收到閘道測試紀錄（無量測值），不列入顯示');
+            scheduleRegionRender();
+            return;
+        }
         update0(id, d);
         if (d && d.ts) LAST_TS[id] = Math.max(LAST_TS[id] || 0, Number(d.ts) || 0);
         scheduleRegionRender();
     };
 })();
 
+// 名稱欄：離開欄位就存（按 Enter 也是讓它離開），存完補畫一次。
+// 不靠 change 事件：值若不是使用者親手打的（例如自動填入）change 不會觸發。
+document.getElementById('region-ui').addEventListener('keydown', function (e) {
+    if (e.key === 'Enter' && e.target.matches && e.target.matches('input[data-label]')) e.target.blur();
+});
+document.getElementById('region-ui').addEventListener('focusout', function (e) {
+    if (!(e.target.matches && e.target.matches('input[data-label]'))) return;
+    setDeviceLabel(e.target.getAttribute('data-label'), e.target.value);
+    scheduleRegionRender();
+});
 document.getElementById('region-ui').addEventListener('click', function (e) {
     var b = e.target.closest('[data-move]');
     if (b) { moveDevice(b.getAttribute('data-dev'), b.getAttribute('data-move')); return; }
@@ -3588,6 +3696,7 @@ renderRegionUI();
             "🧹 清理捕蟲罐": "🧹 Empty the trap",
             "暫停即時串流，讀取歷史中…": "Live streams paused while loading history…",
             "即時串流已恢復": "Live streams resumed",
+            "收到閘道測試紀錄（無量測值），不列入顯示": "Gateway test record received (no readings); not displayed",
             "計數已歸零，舊資料保留": "Count reset to zero; past data kept",
             "已復原上一次歸零": "Last reset undone",
             "沒有歸零紀錄": "No reset on record",
