@@ -1667,8 +1667,9 @@
             statusEl.className = 'status-badge';
             statusEl.innerText = '🟡 探索設備中...';
 
+            // 先讀雲端歸零紀錄再抓資料，卡片和圖表一開始就是歸零後的數字。
             // shallow=true 只取設備節點名稱清單（不下載歷史），再各自開串流
-            fetch(`${dbBase}${FB_BASE_PATH}.json?shallow=true`)
+            syncClean().then(function () { return fetch(`${dbBase}${FB_BASE_PATH}.json?shallow=true`); })
                 .then(r => r.ok ? r.json() : Promise.reject('HTTP ' + r.status))
                 .then(list => {
                     const ids = (list && typeof list === 'object')
@@ -1932,10 +1933,12 @@ function spanActive() { return HIST_FROM !== null || HIST_TO !== null; }
    這裡記下「清理當下的計數」當基準，之後顯示的都是扣掉基準的增量。
    清理時間點之前的資料完全不動，圖上會出現鋸齒——那正是每次清空的痕跡。
 
-   基準只存在瀏覽器的 localStorage，不會寫進 Firebase：資料庫裡的原始
-   累計值一筆都沒有被改過，隨時可以還原。代價是換一台電腦或換瀏覽器看
-   不到這個基準。要跨裝置共用就得讓網頁寫入 Firebase，那要另外開權限。 */
+   基準存在 Firebase 的 environmentdata/trap_clean/<裝置>，所有電腦、手機
+   共用同一份；localStorage 只當離線備援。loradata 裡的原始累計值一筆都
+   沒有被改過，刪掉 trap_clean 就完全還原。 */
 var CLEAN_KEY = 'trap-clean-baseline';
+// 不放在 loradata 底下：connectFirebase 會把 loradata 下每個節點當成一台裝置
+var CLEAN_PATH = '/environmentdata/trap_clean';
 var CLEAN = (function () {
     try { return JSON.parse(localStorage.getItem(CLEAN_KEY)) || {}; }
     catch (e) { return {}; }
@@ -1944,6 +1947,80 @@ var CLEAN = (function () {
 function saveClean() {
     try { localStorage.setItem(CLEAN_KEY, JSON.stringify(CLEAN)); } catch (e) {}
 }
+
+function cleanUrl(id, key) {
+    return dbBase + CLEAN_PATH + (id ? '/' + encodeURIComponent(id) : '') +
+           (key ? '/' + encodeURIComponent(key) : '') + '.json';
+}
+
+/* 串流開著時，瀏覽器 6 條連線可能被占滿，寫入會永遠排隊——先暫停串流再送 */
+function cloudTask(task) {
+    return (typeof withStreamsPaused === 'function' && Object.keys(deviceStreams).length)
+        ? withStreamsPaused(task) : Promise.resolve().then(task);
+}
+
+/* 寫一筆歸零到雲端，回傳帶 Firebase key 的紀錄（復原時靠 key 刪除） */
+function pushClean(id, ev) {
+    return fetch(cleanUrl(id), { method: 'POST', body: JSON.stringify({ ts: ev.ts, base: ev.base }) })
+        .then(function (r) { return r.ok ? r.json() : Promise.reject('HTTP ' + r.status); })
+        .then(function (res) { return { ts: ev.ts, base: ev.base, key: res.name }; });
+}
+
+/* 依目前基準重算數字卡片與圖表 */
+function refreshClean(id) {
+    var arr = HIST[id] || [], c = deviceCards[id];
+    for (var i = arr.length - 1; i >= 0; i--) {
+        if (arr[i].ir != null) {
+            if (c && c.ir) c.ir.innerText = cleanAdjust(id, arr[i].t, arr[i].ir);
+            break;
+        }
+    }
+    renderCharts(id);
+    if (typeof scheduleRegionRender === 'function') scheduleRegionRender();   // 地區首頁的卡片也要跟著更新
+}
+
+/* 以雲端為準：
+   - 雲端有的 → 採用
+   - 本機有 key、雲端沒有 → 別台已復原，丟掉
+   - 本機沒 key（舊版只存本機的歸零）→ 補傳上去，其他裝置才看得到 */
+function syncClean() {
+    if (!dbBase) return Promise.resolve();
+    return cloudTask(function () {
+        return fetch(cleanUrl())
+            .then(function (r) { return r.ok ? r.json() : Promise.reject('HTTP ' + r.status); })
+            .then(function (remote) {
+                remote = remote || {};
+                var next = {}, jobs = [];
+                Object.keys(remote).forEach(function (id) {
+                    next[id] = Object.keys(remote[id] || {}).map(function (k) {
+                        return { ts: +remote[id][k].ts, base: +remote[id][k].base, key: k };
+                    });
+                });
+                Object.keys(CLEAN).forEach(function (id) {
+                    CLEAN[id].forEach(function (ev) {
+                        if (ev.key) return;
+                        jobs.push(pushClean(id, ev).then(
+                            function (saved) { (next[id] = next[id] || []).push(saved); },
+                            function () { (next[id] = next[id] || []).push(ev); }));   // 傳不上去先留著，下次再試
+                    });
+                });
+                return Promise.all(jobs).then(function () {
+                    CLEAN = {};
+                    Object.keys(next).forEach(function (id) {
+                        if (!next[id].length) return;
+                        CLEAN[id] = next[id].sort(function (a, b) { return a.ts - b.ts; });
+                    });
+                    saveClean();
+                    Object.keys(HIST).forEach(function (id) { refreshClean(id); });
+                });
+            });
+    }).catch(function (e) { dashLog('⚠️ 歸零紀錄讀取失敗，暫用本機紀錄: ' + e); });
+}
+
+// 切回這個分頁時重抓一次，別台裝置剛按的歸零才看得到
+document.addEventListener('visibilitychange', function () {
+    if (!document.hidden && dbBase) syncClean();
+});
 
 /* 取 t 之前最後一次清理的基準並扣掉；沒清理過就原樣回傳 */
 function cleanAdjust(id, t, value) {
@@ -1998,26 +2075,40 @@ function cleanTrap(id) {
           '• 這個時間點之前的歷史圖表維持原樣\n' +
           '• 只有這個時間點之後的數量改為從 0 開始累計';
     if (!confirm(msg)) return;
-    (CLEAN[id] = CLEAN[id] || []).push({ ts: last.t, base: last.ir });
-    CLEAN[id].sort(function (a, b) { return a.ts - b.ts; });
-    saveClean();
-    // 整句進字典，不要拆成「已於」這種短片語——短片語會誤傷其他句子
-    dashLog('🧹 [' + id + '] 計數已歸零，舊資料保留 (' + when + ')');
-    var c = deviceCards[id];
-    // 一定要在寫入基準之後重算：上面的 now 是歸零前的數字，
-    // 直接拿來填卡片的話畫面會停在舊值（先前就是這樣壞掉的）。
-    if (c && c.ir) c.ir.innerText = cleanAdjust(id, last.t, last.ir);
-    renderCharts(id);
+    var ev = { ts: last.t, base: last.ir };
+    function apply(rec) {
+        (CLEAN[id] = CLEAN[id] || []).push(rec);
+        CLEAN[id].sort(function (a, b) { return a.ts - b.ts; });
+        saveClean();
+        // 一定要在寫入基準之後重算：上面的 now 是歸零前的數字，
+        // 直接拿來填卡片的話畫面會停在舊值（先前就是這樣壞掉的）。
+        refreshClean(id);
+    }
+    cloudTask(function () { return pushClean(id, ev); }).then(function (saved) {
+        apply(saved);
+        // 整句進字典，不要拆成「已於」這種短片語——短片語會誤傷其他句子
+        dashLog('🧹 [' + id + '] 計數已歸零並同步到雲端，舊資料保留 (' + when + ')');
+    }, function (e) {
+        apply(ev);   // 沒有 key，下次開頁 syncClean 會自動補傳
+        dashLog('⚠️ [' + id + '] 雲端寫入失敗，先存在這台裝置 (' + e + ')');
+        alert(en ? 'The count was reset, but it could not be saved to the cloud, so other devices will not see it yet.\n' +
+                   'Reload this page once the network is back and it will be uploaded automatically.'
+                 : '已歸零，但沒能同步到雲端，其他電腦暫時看不到。\n網路恢復後重新整理這頁會自動補傳。');
+    });
 }
 
 /* 誤按的話用這個復原上一次歸零（主控台輸入 undoClean('IR-5')） */
 function undoClean(id) {
     if (!CLEAN[id] || !CLEAN[id].length) { dashLog('[' + id + '] 沒有歸零紀錄'); return; }
-    CLEAN[id].pop();
+    var ev = CLEAN[id].pop();
     if (!CLEAN[id].length) delete CLEAN[id];
     saveClean();
+    if (ev.key && dbBase) {
+        cloudTask(function () { return fetch(cleanUrl(id, ev.key), { method: 'DELETE' }); })
+            .catch(function (e) { dashLog('⚠️ 雲端刪除失敗，重新整理後可能又出現: ' + e); });
+    }
     dashLog('↩️ [' + id + '] 已復原上一次歸零');
-    renderCharts(id);
+    refreshClean(id);
 }
 var SERIES = [
     { key: 'ir',   color: '#199e70', label: '捕蟲數量', unit: '隻',  dec: 0, agg: 'last' },
@@ -3730,6 +3821,10 @@ renderRegionUI();
             "暫停即時串流，讀取歷史中…": "Live streams paused while loading history…",
             "即時串流已恢復": "Live streams resumed",
             "收到閘道測試紀錄（無量測值），不列入顯示": "Gateway test record received (no readings); not displayed",
+            "計數已歸零並同步到雲端，舊資料保留": "Count reset to zero and saved to the cloud; past data kept",
+            "雲端寫入失敗，先存在這台裝置": "Cloud save failed; kept on this device for now",
+            "歸零紀錄讀取失敗，暫用本機紀錄": "Could not load reset records; using this device's copy",
+            "雲端刪除失敗，重新整理後可能又出現": "Cloud delete failed; it may reappear after reload",
             "計數已歸零，舊資料保留": "Count reset to zero; past data kept",
             "已復原上一次歸零": "Last reset undone",
             "沒有歸零紀錄": "No reset on record",
