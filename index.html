@@ -1836,7 +1836,10 @@
                         <div class="dash-card-value"><span data-f="ir">--</span> <span class="dash-card-unit">隻</span></div>
                         <button class="range-btn" onclick="cleanTrap('${id}')"
                                 style="margin-top:.65rem;font-size:.78rem;padding:.3rem .6rem;"
-                                title="清空捕蟲罐後按這裡，數量從 0 重新計算（舊資料保留）">🧹 清理捕蟲罐</button></div>
+                                title="清空捕蟲罐後按這裡，數量從 0 重新計算（舊資料保留）">🧹 清理捕蟲罐</button>
+                        <button class="range-btn" onclick="adjustTrap('${id}')"
+                                style="margin-top:.65rem;margin-left:.35rem;font-size:.78rem;padding:.3rem .6rem;"
+                                title="漏算或多算時手動加減數量（資料庫原始紀錄不變）">± 修正</button></div>
                     <div class="dash-card"><div class="dash-card-title">🌡️ 環境溫度</div>
                         <div class="dash-card-value"><span data-f="temp">--</span> <span class="dash-card-unit">°C</span></div></div>
                     <div class="dash-card"><div class="dash-card-title">💧 環境濕度</div>
@@ -2075,26 +2078,67 @@ function cleanTrap(id) {
           '• 這個時間點之前的歷史圖表維持原樣\n' +
           '• 只有這個時間點之後的數量改為從 0 開始累計';
     if (!confirm(msg)) return;
-    var ev = { ts: last.t, base: last.ir };
+    // 整句進字典，不要拆成「已於」這種短片語——短片語會誤傷其他句子
+    commitClean(id, { ts: last.t, base: last.ir },
+                '🧹 [' + id + '] 計數已歸零並同步到雲端，舊資料保留 (' + when + ')');
+}
+
+/* 歸零與手動修正共用：先寫雲端，成功才帶 key 存本機；失敗就先存本機等補傳 */
+function commitClean(id, ev, okLog) {
+    var en = uiLang() === 'en';
     function apply(rec) {
         (CLEAN[id] = CLEAN[id] || []).push(rec);
+        // sort 是穩定排序：同一時間點先歸零再修正，修正會排在後面、蓋過歸零
         CLEAN[id].sort(function (a, b) { return a.ts - b.ts; });
         saveClean();
-        // 一定要在寫入基準之後重算：上面的 now 是歸零前的數字，
-        // 直接拿來填卡片的話畫面會停在舊值（先前就是這樣壞掉的）。
+        // 一定要在寫入基準之後重算，畫面才不會停在舊值（先前就是這樣壞掉的）
         refreshClean(id);
     }
     cloudTask(function () { return pushClean(id, ev); }).then(function (saved) {
         apply(saved);
-        // 整句進字典，不要拆成「已於」這種短片語——短片語會誤傷其他句子
-        dashLog('🧹 [' + id + '] 計數已歸零並同步到雲端，舊資料保留 (' + when + ')');
+        dashLog(okLog);
     }, function (e) {
         apply(ev);   // 沒有 key，下次開頁 syncClean 會自動補傳
         dashLog('⚠️ [' + id + '] 雲端寫入失敗，先存在這台裝置 (' + e + ')');
-        alert(en ? 'The count was reset, but it could not be saved to the cloud, so other devices will not see it yet.\n' +
+        alert(en ? 'Saved on this device, but it could not be saved to the cloud, so other devices will not see it yet.\n' +
                    'Reload this page once the network is back and it will be uploaded automatically.'
-                 : '已歸零，但沒能同步到雲端，其他電腦暫時看不到。\n網路恢復後重新整理這頁會自動補傳。');
+                 : '已套用，但沒能同步到雲端，其他電腦暫時看不到。\n網路恢復後重新整理這頁會自動補傳。');
     });
+}
+
+/* 手動修正：例如漏算 1 隻就輸入 1，多算就輸入 -1。
+   不改資料庫原始值，只是在這個時間點把基準往下（或往上）調，
+   之後顯示 = 原始值 − 基準。誤按一樣用 undoClean('IR-5') 撤銷。 */
+function adjustTrap(id) {
+    var arr = HIST[id] || [], last = null;
+    for (var i = arr.length - 1; i >= 0; i--) {
+        if (arr[i].ir != null) { last = arr[i]; break; }
+    }
+    var en = uiLang() === 'en';
+    if (!last) {
+        alert(en ? 'No insect count is available yet.' : '目前沒有可用的捕蟲數量，無法修正。');
+        return;
+    }
+    var name = (typeof deviceLabel === 'function') ? deviceLabel(id) : id;
+    var now = cleanAdjust(id, last.t, last.ir);
+    var input = prompt(en
+        ? '"' + name + '" currently shows ' + now + '.\nHow much to add? (e.g. 1, or -1 to subtract)'
+        : '「' + name + '」目前顯示 ' + now + ' 隻。\n要加減多少？（例如 1；多算了就輸入 -1）', '1');
+    if (input === null) return;
+    var delta = Number(String(input).trim());
+    if (!isFinite(delta) || delta === 0 || Math.floor(delta) !== delta) {
+        alert(en ? 'Please enter a whole number other than 0.' : '請輸入不是 0 的整數。');
+        return;
+    }
+    if (now + delta < 0) {
+        alert(en ? 'The count cannot go below 0.' : '修正後不能小於 0。');
+        return;
+    }
+    var evs = CLEAN[id] || [], base = 0;
+    for (var j = 0; j < evs.length; j++) if (evs[j].ts <= last.t) base = evs[j].base;
+    var when = new Date(last.t).toLocaleString(en ? 'sv-SE' : 'zh-TW', { hour12: false });
+    commitClean(id, { ts: last.t, base: base - delta },
+                '✏️ [' + id + '] 手動修正 ' + (delta > 0 ? '+' : '') + delta + '，已同步到雲端 (' + when + ')');
 }
 
 /* 誤按的話用這個復原上一次歸零（主控台輸入 undoClean('IR-5')） */
@@ -3822,6 +3866,10 @@ renderRegionUI();
             "即時串流已恢復": "Live streams resumed",
             "收到閘道測試紀錄（無量測值），不列入顯示": "Gateway test record received (no readings); not displayed",
             "計數已歸零並同步到雲端，舊資料保留": "Count reset to zero and saved to the cloud; past data kept",
+            "± 修正": "± Adjust",
+            "漏算或多算時手動加減數量（資料庫原始紀錄不變）": "Add or subtract from the count by hand (raw records are not changed)",
+            "手動修正": "Manual adjustment",
+            "已同步到雲端": "saved to the cloud",
             "雲端寫入失敗，先存在這台裝置": "Cloud save failed; kept on this device for now",
             "歸零紀錄讀取失敗，暫用本機紀錄": "Could not load reset records; using this device's copy",
             "雲端刪除失敗，重新整理後可能又出現": "Cloud delete failed; it may reappear after reload",
